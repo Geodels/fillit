@@ -12,9 +12,9 @@ A Python interface to compute pit filling using priority-flood on structured and
 
 ### Notebooks
 
-To run the Examples (jupyter notebooks) it is recommended to use the geodels-docker image which has all the libraries already installed.
+To run the Examples (jupyter notebooks) it is recommended to use the `gscape-docker` image which has all the libraries already installed.
 
-[https://hub.docker.com/r/tristansalles/paralem-docker/](https://hub.docker.com/r/tristansalles/paralem-docker/)
+[https://hub.docker.com/u/geodels/dashboard/](https://hub.docker.com/u/geodels/dashboard/)
 
 ## Installation
 
