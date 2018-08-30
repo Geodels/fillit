@@ -22,12 +22,6 @@ To run the Examples (jupyter notebooks) it is recommended to use the geodels-doc
 python setup.py install
 ```
 
-Alternatively install using pip:
-
-```bash
-pip install [--user] fillit
-```
-
 ## Usage
 
 Two classes are included as part of the **FillIT** package:
