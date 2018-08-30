@@ -1,0 +1,8 @@
+*.DS_Store
+build
+dist
+*.mod
+*.o
+*.so
+fillit.egg-info
+fillit/Notebooks/.ipynb_checkpoints/*

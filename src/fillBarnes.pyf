@@ -1,0 +1,76 @@
+!    -*- f90 -*-
+! Note: the context of this file is case sensitive.
+
+python module _fillBarnes ! in 
+    interface  ! in :_fillBarnes
+        subroutine fillinitialise(z,type_bn,step,m,n) ! in :_fillBarnes:fillBarnes.f90
+            use queues
+            real(kind=8) dimension(m,n),intent(in) :: z
+            integer intent(in) :: type_bn
+            integer intent(in) :: step
+            integer, optional,check(shape(z,0)==m),depend(z) :: m=shape(z,0)
+            integer, optional,check(shape(z,1)==n),depend(z) :: n=shape(z,1)
+        end subroutine fillinitialise
+        subroutine fillinitialise_unst_init(z,boundary,cells_nodes,cells_edges,edges_nodes,type_bn,m,n,o,p) ! in :_fillBarnes:fillBarnes.f90
+            use queues
+            real(kind=8) dimension(m),intent(in) :: z
+            integer dimension(p),intent(in) :: boundary
+            integer dimension(n,3),intent(in) :: cells_nodes
+            integer dimension(n,3),intent(in),depend(n) :: cells_edges
+            integer dimension(o,2),intent(in) :: edges_nodes
+            integer intent(in) :: type_bn
+            integer, optional,check(len(z)>=m),depend(z) :: m=len(z)
+            integer, optional,check(shape(cells_nodes,0)==n),depend(cells_nodes) :: n=shape(cells_nodes,0)
+            integer, optional,check(shape(edges_nodes,0)==o),depend(edges_nodes) :: o=shape(edges_nodes,0)
+            integer, optional,check(len(boundary)>=p),depend(boundary) :: p=len(boundary)
+        end subroutine fillinitialise_unst_init
+        subroutine fillinitialise_unst_fast(z,boundary,ngbids,ngbnb,type_bn,m,p) ! in :_fillBarnes:fillBarnes.f90
+            use queues
+            real(kind=8) dimension(m),intent(in) :: z
+            integer dimension(p),intent(in) :: boundary
+            integer dimension(m,12),intent(in),depend(m) :: ngbids
+            integer dimension(m),intent(in),depend(m) :: ngbnb
+            integer intent(in) :: type_bn
+            integer, optional,check(len(z)>=m),depend(z) :: m=len(z)
+            integer, optional,check(len(boundary)>=p),depend(boundary) :: p=len(boundary)
+        end subroutine fillinitialise_unst_fast
+        subroutine fillinitialise_unst(z,type_bn,m) ! in :_fillBarnes:fillBarnes.f90
+            use queues
+            real(kind=8) dimension(m),intent(in) :: z
+            integer intent(in) :: type_bn
+            integer, optional,check(len(z)>=m),depend(z) :: m=len(z)
+        end subroutine fillinitialise_unst
+        subroutine cellconnect(nbcell,meshcells) ! in :_fillBarnes:fillBarnes.f90
+            use queues
+            integer intent(in) :: nbcell
+            integer dimension(nbcell,4),intent(out),depend(nbcell) :: meshcells
+        end subroutine cellconnect
+        subroutine fillpit_struct(m,n,filled) ! in :_fillBarnes:fillBarnes.f90
+            use queues
+            integer intent(in) :: m
+            integer intent(in) :: n
+            real(kind=8) dimension(m,n),intent(out),depend(m,n) :: filled
+        end subroutine fillpit_struct
+        subroutine fillpit_eps_struct(m,n,eps,filled) ! in :_fillBarnes:fillBarnes.f90
+            use queues
+            integer intent(in) :: m
+            integer intent(in) :: n
+            real(kind=8) intent(in) :: eps
+            real(kind=8) dimension(m,n),intent(out),depend(m,n) :: filled
+        end subroutine fillpit_eps_struct
+        subroutine fillpit_unstruct(m,filled) ! in :_fillBarnes:fillBarnes.f90
+            use queues
+            integer intent(in) :: m
+            real(kind=8) dimension(m),intent(out),depend(m) :: filled
+        end subroutine fillpit_unstruct
+        subroutine fillpit_eps_unstruct(m,eps,filled) ! in :_fillBarnes:fillBarnes.f90
+            use queues
+            integer intent(in) :: m
+            real(kind=8) intent(in) :: eps
+            real(kind=8) dimension(m),intent(out),depend(m) :: filled
+        end subroutine fillpit_eps_unstruct
+    end interface 
+end python module _fillBarnes
+
+! This file was auto-generated with f2py (version:2).
+! See http://cens.ioc.ee/projects/f2py2e/

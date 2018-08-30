@@ -1,0 +1,8 @@
+include README.md
+include MANIFEST.in
+include COPYING
+include COPYING.LESSER
+recursive-include src *
+include fillit/Notebooks
+include fillit/Notebooks/*.ipynb
+include fillit/Notebooks/Data/*

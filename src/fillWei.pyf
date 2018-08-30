@@ -1,0 +1,23 @@
+!    -*- f90 -*-
+! Note: the context of this file is case sensitive.
+
+python module _fillWei ! in
+    interface  ! in :_fillWei
+        subroutine fillinitialise(z,m,n) ! in :_fillWei:fillWei.f90
+            use queues
+            real(kind=8) dimension(m,n),intent(in) :: z
+            integer, optional,check(shape(z,0)==m),depend(z) :: m=shape(z,0)
+            integer, optional,check(shape(z,1)==n),depend(z) :: n=shape(z,1)
+        end subroutine fillinitialise
+        subroutine fillpit(m,n,eps,filled) ! in :_fillWei:fillWei.f90
+            use queues
+            integer intent(in) :: m
+            integer intent(in) :: n
+            real(kind=8) intent(in) :: eps
+            real(kind=8) dimension(m,n),intent(out),depend(m,n) :: filled
+        end subroutine fillpit
+    end interface
+end python module _fillWei
+
+! This file was auto-generated with f2py (version:2).
+! See http://cens.ioc.ee/projects/f2py2e/
