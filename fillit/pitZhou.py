@@ -81,9 +81,11 @@ class depressionFillingZhou(object):
         # Unstructured grid initialisation
         if first == 1:
             Tmesh = vpy.mesh_tri.MeshTri(coords, cells)
-            boundary = Tmesh.get_boundary_vertices()
-            edges_nodes = Tmesh.edges['nodes']
+            Tmesh.mark_boundary()
+            ids = numpy.arange(0, len(Tmesh.node_coords), dtype=int)
+            boundary = ids[Tmesh._is_boundary_node]
             coords = Tmesh.node_coords
+            edges_nodes = Tmesh.edges['nodes']
             cells_nodes = Tmesh.cells['nodes']
             cells_edges = Tmesh.cells['edges']
             _fillZhou.fillinitialise_unst_init(coords, boundary, cells_nodes, cells_edges,
