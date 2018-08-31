@@ -7,7 +7,7 @@ A Python interface to compute pit filling using priority-flood on structured and
 ### FillIT
 
 + [numpy](http://numpy.org)
-+ [voropy](https://github.com/nschloe/voropy)
++ [meshplex](https://github.com/nschloe/meshplex)
 + fortran compiler, preferably [gfortran](https://gcc.gnu.org/wiki/GFortran)
 
 ### Notebooks

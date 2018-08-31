@@ -18,7 +18,7 @@ along with fillIT.  If not, see <http://www.gnu.org/licenses/>.
 # -*- coding: utf-8 -*-
 from . import _fillBarnes
 import numpy as np
-import voropy as vpy
+import meshplex as vpy
 
 try: range = xrange
 except: pass
