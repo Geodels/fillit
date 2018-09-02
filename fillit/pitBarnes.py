@@ -80,7 +80,7 @@ class depressionFillingBarnes(object):
         if first == 1:
             Tmesh = vpy.mesh_tri.MeshTri(coords, cells)
             Tmesh.mark_boundary()
-            ids = numpy.arange(0, len(Tmesh.node_coords), dtype=int)
+            ids = np.arange(0, len(Tmesh.node_coords), dtype=int)
             boundary = ids[Tmesh._is_boundary_node]
             coords = Tmesh.node_coords
             edges_nodes = Tmesh.edges['nodes']
