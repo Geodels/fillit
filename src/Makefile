@@ -22,28 +22,17 @@ DIR=$(shell pwd)
 
 F90 = gfortran
 F2PY = f2py
-FFLAGS = -shared -O2 -fPIC
+FFLAGS = -shared -O2 -fPIC -shared
 
 # Fortran optimisation flags
-FCFLAGS = -O3 -funroll-loops --param max-unroll-times=2 -cpp \
+FCFLAGS = -O3 -funroll-loops --param max-unroll-times=2 -cpp -shared \
     -ffree-form -ftree-vectorize -ffast-math -lstdc++ -ffree-line-length-none
-
-# F2PY optimisation flags
-# F2PY_FLAGS = --f90exec=${F90} --opt='-O3 -ftree-vectorize '
 
 # Depression filling algorithm using Planchon and Darboux
 FMOD = queues
 
-# LMOD = fillBarnes
-# L2MOD = fillWei
-# L3MOD = fillZhou
-
 all:
 	${F90} ${FFLAGS} -c ${FMOD}.f90
-
-# ${F2PY} ${F2PY_FLAGS} -c ${LMOD}.pyf  ${FMOD}.f90 ${LMOD}.f90
-# ${F2PY} ${F2PY_FLAGS} -c ${L2MOD}.pyf  ${FMOD}.f90 ${L2MOD}.f90
-# ${F2PY} ${F2PY_FLAGS} -c ${L3MOD}.pyf  ${FMOD}.f90 ${L3MOD}.f90
 
 clean:
 	rm -fv *~ *.bak *.o *.mod *.original *.so
