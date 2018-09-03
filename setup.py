@@ -13,15 +13,18 @@ sys_includes += glob.glob('src/*.mod')
 # interface for fortran code
 ext1 = Extension(name    = 'fillit._fillBarnes',
                  sources = ['src/fillBarnes.pyf', 'src/fillBarnes.f90'],
-                 extra_link_args = ['src/queues.o'])
+                 extra_link_args = ['-shared src/queues.o'],
+                 extra_compile_args=['-shared'])
 
 ext2 = Extension(name    = 'fillit._fillWei',
                  sources = ['src/fillWei.pyf', 'src/fillWei.f90'],
-                 extra_link_args = ['src/queues.o'])
+                 extra_link_args = ['-shared src/queues.o'],
+                 extra_compile_args=['-shared'])
 
 ext3 = Extension(name    = 'fillit._fillZhou',
                  sources = ['src/fillZhou.pyf', 'src/fillZhou.f90'],
-                 extra_link_args = ['src/queues.o'])
+                 extra_link_args = ['-shared src/queues.o'],
+                 extra_compile_args=['-shared'])
 
 if __name__ == "__main__":
     setup(name = 'fillit',
