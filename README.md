@@ -16,7 +16,7 @@ To run the Examples (jupyter notebooks) it is recommended to use the `gscape-doc
 
 [https://hub.docker.com/u/geodels/dashboard/](https://hub.docker.com/u/geodels/dashboard/)
 
-## Installation
+## Installation 
 
 ```bash
 python setup.py install
