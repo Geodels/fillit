@@ -14,17 +14,17 @@ sys_includes += glob.glob('src/*.mod')
 ext1 = Extension(name    = 'fillit._fillBarnes',
                  sources = ['src/fillBarnes.pyf', 'src/fillBarnes.f90'],
                  extra_link_args = ['-shared src/queues.o'],
-                 extra_compile_args=['-shared'])
+                 extra_f90_compile_args = ['-fPIC', '-O3'])
 
 ext2 = Extension(name    = 'fillit._fillWei',
                  sources = ['src/fillWei.pyf', 'src/fillWei.f90'],
                  extra_link_args = ['-shared src/queues.o'],
-                 extra_compile_args=['-shared'])
+                 extra_f90_compile_args = ['-fPIC', '-O3'])
 
 ext3 = Extension(name    = 'fillit._fillZhou',
                  sources = ['src/fillZhou.pyf', 'src/fillZhou.f90'],
                  extra_link_args = ['-shared src/queues.o'],
-                 extra_compile_args=['-shared'])
+                 extra_f90_compile_args = ['-fPIC', '-O3'])
 
 if __name__ == "__main__":
     setup(name = 'fillit',

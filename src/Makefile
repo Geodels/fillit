@@ -22,7 +22,7 @@ DIR=$(shell pwd)
 
 F90 = gfortran
 F2PY = f2py
-FFLAGS = -shared -O2 -fPIC -shared
+FFLAGS = -shared -O2 -fPIC
 
 # Fortran optimisation flags
 FCFLAGS = -O3 -funroll-loops --param max-unroll-times=2 -cpp -shared \
