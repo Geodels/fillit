@@ -769,7 +769,7 @@ subroutine cellconnect(nbcell, meshcells)
 
 end subroutine cellconnect
 
-subroutine spillPts(graphnb, wgraph)
+subroutine spillPts(graphnb, newwgraph)
 !*****************************************************************************
 ! This function returns pit/depression graph.
 
@@ -777,16 +777,16 @@ subroutine spillPts(graphnb, wgraph)
   implicit none
 
   integer,intent(in) :: graphnb
-  real(kind=8),intent(out) :: wgraph(graphnb,3)
+  real(kind=8),intent(out) :: newwgraph(graphnb,3)
   type(wnode)  :: wID
   integer :: p
 
   p = 1
   do while(graphW%n >0)
     wID = graphW%wpop()
-    wgraph(p,1) = wID%w1
-    wgraph(p,2) = wID%w2
-    wgraph(p,3) = wID%Z
+    newwgraph(p,1) = wID%w1
+    newwgraph(p,2) = wID%w2
+    newwgraph(p,3) = wID%Z
     p = p+1
   enddo
 
