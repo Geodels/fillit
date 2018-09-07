@@ -125,10 +125,10 @@ python module _fillZhou ! in
             integer intent(in) :: nbcell
             integer dimension(nbcell,4),intent(out),depend(nbcell) :: meshcells
         end subroutine cellconnect
-        subroutine spillpts(graphnb,wgraph) ! in :_fillZhou:fillZhou.f90
+        subroutine spillpts(graphnb,newwgraph) ! in :_fillZhou:fillZhou.f90
             use queues
             integer intent(in) :: graphnb
-            real(kind=8) dimension(graphnb,3),intent(out),depend(graphnb) :: wgraph
+            real(kind=8) dimension(graphnb,3),intent(out),depend(graphnb) :: newwgraph
         end subroutine spillpts
         subroutine params_regpit(zi,zf,area,depids,totpit,pitnb,pitvol,spillpts,m,n) ! in :_fillZhou:fillZhou.f90
             use queues
