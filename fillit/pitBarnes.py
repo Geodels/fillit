@@ -91,7 +91,7 @@ class depressionFillingBarnes(object):
             self.m = len(self.Zin)
             self.seaIDs = np.where(self.Zin<sealevel)
             if len(boundary) == 0:
-                boundary = self.seaIDs[0]
+                boundary = self.seaIDs
             _fillBarnes.fillinitialise_unst_init(self.Zin, boundary, cells_nodes, cells_edges,
                                                         edges_nodes, type)
         elif first == 2:
