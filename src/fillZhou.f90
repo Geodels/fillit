@@ -387,8 +387,10 @@ subroutine graphfill(nb, cgraph, maxnghbs, nelev, m)
       inFlag(c) = .True.
       do k = 1, ngbNb(c)
         nc = ngbhArr(c,k)
-        if(.not.inFlag(nc))then
-          call priorityqueue%PQpush(max(spill(c,k),nelev(c)), nc)
+        if(nc>0)then
+          if(.not.inFlag(nc))then
+            call priorityqueue%PQpush(max(spill(c,k),nelev(c)), nc)
+          endif
         endif
       enddo
     endif

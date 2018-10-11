@@ -25,6 +25,7 @@ ext3 = Extension(name    = 'fillit._fillZhou',
                  sources = ['src/fillZhou.pyf', 'src/fillZhou.f90'],
                  extra_link_args = ['-shared src/queues.o'],
                  extra_f90_compile_args = ['-fPIC', '-O3'])
+                 # extra_f90_compile_args = ['-fPIC', '-O0', '-g', '-fbacktrace','-fcheck=all'])
 
 if __name__ == "__main__":
     setup(name = 'fillit',

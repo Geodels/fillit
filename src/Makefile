@@ -22,10 +22,12 @@ DIR=$(shell pwd)
 
 F2PY = f2py
 FFLAGS = -shared -O2 -fPIC
+# FFLAGS = -O0 -g -fbacktrace -fPIC -shared -fcheck=all
 
 # Fortran optimisation flags
 FCFLAGS = -O3 -funroll-loops --param max-unroll-times=2 -cpp -shared \
     -ffree-form -ftree-vectorize -ffast-math -lstdc++ -ffree-line-length-none
+# FCFLAGS = -O0 -g -fbacktrace -shared -fcheck=all
 
 # Depression filling algorithm using Planchon and Darboux
 FMOD = queues
