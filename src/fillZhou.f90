@@ -61,7 +61,7 @@ subroutine fillinitialise_unst_init(coords, boundary, cells_nodes, cells_edges, 
   uextent = extent
   XYcoords = coords(:,1:2)
   call unstructured_mesh_parameters_init(coords(:,3), m, n, o, p, 2, boundary, &
-                                                                      cells_nodes, cells_edges, edges_nodes)
+                                            cells_nodes, cells_edges, edges_nodes)
 
   return
 
@@ -154,7 +154,7 @@ subroutine combineregtiles( elev, watershed, ext, newgraph, graphnb, m, n)
             lb2 = watershed(i,n-1)
             lb1 = watershed(ii,n)
           endif
-          call graphTile%wpush(lb1, lb2, eo)
+          call graphTile%wpush(lb1, lb2, eo, 0)
         endif
         ! West
         if(watershed(i,2) .ne.  watershed(ii,1))then
@@ -166,7 +166,7 @@ subroutine combineregtiles( elev, watershed, ext, newgraph, graphnb, m, n)
             lb2 = watershed(i,2)
             lb1 = watershed(ii,1)
           endif
-          call graphTile%wpush(lb1, lb2, eo)
+          call graphTile%wpush(lb1, lb2, eo, 0)
         endif
       endif
     enddo
@@ -186,7 +186,7 @@ subroutine combineregtiles( elev, watershed, ext, newgraph, graphnb, m, n)
             lb2 = watershed(m-1,i)
             lb1 = watershed(m,ii)
           endif
-          call graphTile%wpush(lb1, lb2, eo)
+          call graphTile%wpush(lb1, lb2, eo, 0)
         endif
         ! South
         if(watershed(2,i) .ne.  watershed(1,ii))then
@@ -198,7 +198,7 @@ subroutine combineregtiles( elev, watershed, ext, newgraph, graphnb, m, n)
             lb2 = watershed(2,i)
             lb1 = watershed(1,ii)
           endif
-          call graphTile%wpush(lb1, lb2, eo)
+          call graphTile%wpush(lb1, lb2, eo, 0)
         endif
       endif
     enddo
@@ -232,7 +232,7 @@ subroutine combine_unstgrids( elev, watershed, ins, outs, newgraph, graphnb, m, 
   integer, intent(in) :: outs(m)
 
   integer,intent(out) :: graphnb
-  real(kind=8),intent(out) :: newgraph((m+n)*2,3)
+  real(kind=8),intent(out) :: newgraph((m+n)*2,4)
 
   integer :: i, c, p, nc, lb1, lb2
 
@@ -262,7 +262,11 @@ subroutine combine_unstgrids( elev, watershed, ins, outs, newgraph, graphnb, m, 
               lb2 = watershed(nc)
               lb1 = watershed(c)
             endif
-            call graphTile%wpush(lb1, lb2, eo)
+            if(elev(c)>elev(nc))then
+              call graphTile%wpush(lb1, lb2, eo, c)
+            else
+              call graphTile%wpush(lb1, lb2, eo, nc)
+            endif
           endif
         endif
     enddo
@@ -275,6 +279,7 @@ subroutine combine_unstgrids( elev, watershed, ins, outs, newgraph, graphnb, m, 
     newgraph(i,1) = wID%w1
     newgraph(i,2) = wID%w2
     newgraph(i,3) = wID%Z
+    newgraph(i,4) = wID%id
     i = i+1
   enddo
 
@@ -295,7 +300,7 @@ subroutine combine_unstgrids_fast( n, elev, watershed, newgraph, graphnb, m)
   integer, intent(in) :: watershed(m)
 
   integer,intent(out) :: graphnb
-  real(kind=8),intent(out) :: newgraph((m+n)*2,3)
+  real(kind=8),intent(out) :: newgraph((m+n)*2,4)
 
   integer :: i, c, p, nc, lb1, lb2
 
@@ -317,7 +322,11 @@ subroutine combine_unstgrids_fast( n, elev, watershed, newgraph, graphnb, m)
               lb2 = watershed(nc)
               lb1 = watershed(c)
             endif
-            call graphTile%wpush(lb1, lb2, eo)
+            if(elev(c)>elev(nc))then
+              call graphTile%wpush(lb1, lb2, eo, c)
+            else
+              call graphTile%wpush(lb1, lb2, eo, nc)
+            endif
           endif
         endif
     enddo
@@ -330,6 +339,7 @@ subroutine combine_unstgrids_fast( n, elev, watershed, newgraph, graphnb, m)
     newgraph(i,1) = wID%w1
     newgraph(i,2) = wID%w2
     newgraph(i,3) = wID%Z
+    newgraph(i,4) = wID%id
     i = i+1
   enddo
 
@@ -412,7 +422,7 @@ subroutine watershedsmeet(c, nc)
   real(kind=8) :: oelev
 
   if(nc == -1)then
-    call graphW%wpush(labels(c,2), 0, Fill(c))
+    call graphW%wpush(labels(c,2), 0, Fill(c), c)
     return
   endif
 
@@ -429,7 +439,12 @@ subroutine watershedsmeet(c, nc)
     lb2 = labels(nc,2)
   endif
 
-  call graphW%wpush(lb1, lb2, oelev)
+  if( Fill(c)>Fill(nc) )then
+    call graphW%wpush(lb1, lb2, oelev, c)
+  else
+    call graphW%wpush(lb1, lb2, oelev, nc)
+  endif
+
 
   return
 
@@ -707,10 +722,11 @@ subroutine fillpit_unstruct(m, Filled, pitLabel, watershedLabel, graphN)
         call watershedsmeet(c,nc)
         if(.not.Flag(nc))then
           iSpill = Fill(nc)
-          labels(nc,2) = labels(c,2)
           if(iSpill < spill)then
+            wlabel = wlabel + 1
             ! Depression cell
             labels(nc,1) = nlabel
+            labels(nc,2) = wlabel
             Fill(nc) = spill
             Flag(nc) = .True.
             call depressionQueue%push(Fill(nc), nc)
@@ -718,6 +734,7 @@ subroutine fillpit_unstruct(m, Filled, pitLabel, watershedLabel, graphN)
             nlabel = nlabel + 1
           else
             ! Slope cell
+            labels(nc,2) = labels(c,2)
             labels(nc,1) = -1
             Flag(nc) = .True.
             call traceQueue%push(iSpill, nc)
@@ -779,7 +796,7 @@ subroutine spillPts(graphnb, newwgraph)
   implicit none
 
   integer,intent(in) :: graphnb
-  real(kind=8),intent(out) :: newwgraph(graphnb,3)
+  real(kind=8),intent(out) :: newwgraph(graphnb,4)
   type(wnode)  :: wID
   integer :: p
 
@@ -789,6 +806,7 @@ subroutine spillPts(graphnb, newwgraph)
     newwgraph(p,1) = wID%w1
     newwgraph(p,2) = wID%w2
     newwgraph(p,3) = wID%Z
+    newwgraph(p,4) = wID%id
     p = p+1
   enddo
 

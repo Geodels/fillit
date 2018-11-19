@@ -68,7 +68,7 @@ python module _fillZhou ! in
             integer dimension(m),intent(in),depend(m) :: watershed
             integer dimension(n),intent(in) :: ins
             integer dimension(m),intent(in),depend(m) :: outs
-            real(kind=8) dimension((m+n)*2,3),intent(out),depend(m,n) :: newgraph
+            real(kind=8) dimension((m+n)*2,4),intent(out),depend(m,n) :: newgraph
             integer intent(out) :: graphnb
             integer, optional,check(len(elev)>=m),depend(elev) :: m=len(elev)
             integer, optional,check(len(ins)>=n),depend(ins) :: n=len(ins)
@@ -78,7 +78,7 @@ python module _fillZhou ! in
             integer intent(in) :: n
             real(kind=8) dimension(m),intent(in) :: elev
             integer dimension(m),intent(in),depend(m) :: watershed
-            real(kind=8) dimension((m+n)*2,3),intent(out),depend(m,n) :: newgraph
+            real(kind=8) dimension((m+n)*2,4),intent(out),depend(m,n) :: newgraph
             integer intent(out) :: graphnb
             integer, optional,check(len(elev)>=m),depend(elev) :: m=len(elev)
         end subroutine combine_unstgrids_fast
@@ -128,7 +128,7 @@ python module _fillZhou ! in
         subroutine spillpts(graphnb,newwgraph) ! in :_fillZhou:fillZhou.f90
             use queues
             integer intent(in) :: graphnb
-            real(kind=8) dimension(graphnb,3),intent(out),depend(graphnb) :: newwgraph
+            real(kind=8) dimension(graphnb,4),intent(out),depend(graphnb) :: newwgraph
         end subroutine spillpts
         subroutine params_regpit(zi,zf,area,depids,totpit,pitnb,pitvol,spillpts,m,n) ! in :_fillZhou:fillZhou.f90
             use queues

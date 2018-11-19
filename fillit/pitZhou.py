@@ -165,7 +165,7 @@ class depressionFillingZhou(object):
         Perform pit filling over the spill-over graph.
         """
 
-        return _fillZhou.graphfill(int(max(cgraph[:,1])+1), cgraph, maxnghbs)
+        return _fillZhou.graphfill(int(max(cgraph[:,1])+2), cgraph, maxnghbs)
 
     def getPitData(self, zi, zf, area, depID, totpit):
         """

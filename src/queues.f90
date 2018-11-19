@@ -32,6 +32,7 @@ module queues
 
   ! Watershed node definition: index of connected watershed and their respective elevation
   type wnode
+    integer :: id
     integer :: w1
     integer :: w2
     real(kind=8) :: Z
@@ -394,13 +395,13 @@ contains
 
   end function wpop
 
-  subroutine wpush(this, w1, w2, Z)
+  subroutine wpush(this, w1, w2, Z, id)
   !*****************************************************************************
   ! This function pushes new values in the  watershed graph
 
     class(wgraph), intent(inout) :: this
     real(kind=8) :: Z
-    integer  :: w1, w2, k
+    integer  :: w1, w2, id, k
     type(wnode)  :: x
     type(wnode), allocatable  :: tmp(:)
     logical :: add
@@ -413,6 +414,7 @@ contains
       if(w1 == x%w1 .and. w2 == x%w2)then
         if(Z < x%Z)then
           x%Z = Z
+          x%id = id
           this%buf(k) = x
         endif
         add = .False.
@@ -422,6 +424,7 @@ contains
 
     if(add .or. this%n == 0)then
       x%Z = Z
+      x%id = id
       x%w1 = w1
       x%w2 = w2
       this%n = this%n+1
