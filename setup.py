@@ -27,6 +27,12 @@ ext3 = Extension(name    = 'fillit._fillZhou',
                  extra_f90_compile_args = ['-fPIC', '-O3'])
                  #extra_f90_compile_args = ['-fPIC', '-O0', '-g', '-fbacktrace','-fcheck=all'])
 
+ext4 = Extension(name    = 'fillit._fillScape',
+                 sources = ['src/fillScape.pyf', 'src/fillScape.f90'],
+                 extra_link_args = ['-shared src/queues.o'],
+                 extra_f90_compile_args = ['-fPIC', '-O3'])
+                 #extra_f90_compile_args = ['-fPIC', '-O0', '-g', '-fbacktrace','-fcheck=all'])
+
 if __name__ == "__main__":
     setup(name = 'fillit',
           author            = "Tristan Salles",
@@ -36,7 +42,7 @@ if __name__ == "__main__":
           description       = "A Python interface to compute pit filling using priority-flood on structured and unstructured meshes.",
           long_description = open('README.md').read(),
           long_description_content_type = "text/markdown",
-          ext_modules       = [ext1,ext2,ext3],
+          ext_modules       = [ext1,ext2,ext3,ext4],
           packages          = ['fillit'],
           package_data      = {'fillit': ['Notebooks/*ipynb',
                                           'Notebooks/Data/*'] ,'fillit':

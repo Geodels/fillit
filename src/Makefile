@@ -20,6 +20,7 @@
 
 DIR=$(shell pwd)
 
+# F90 = gfortran
 F2PY = f2py
 FFLAGS = -shared -O2 -fPIC
 # FFLAGS = -O0 -g -fbacktrace -fPIC -shared -fcheck=all
