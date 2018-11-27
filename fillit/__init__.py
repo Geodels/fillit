@@ -16,4 +16,5 @@ along with fillIT.  If not, see <http://www.gnu.org/licenses/>.
 
 from .pitWei import depressionFillingWei
 from .pitZhou import depressionFillingZhou
+from .pitScape import depressionFillingScape
 from .pitBarnes import depressionFillingBarnes

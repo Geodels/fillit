@@ -94,7 +94,7 @@ class depressionFillingZhou(object):
             _fillZhou.fillinitialise_unst_fast(coords, boundary, ngbIDs, ngbNb, meshIDs, extent)
 
         else:
-            _fillZhou.fillinitialise_unst(self.Zin)
+            _fillZhou.fillinitialise_unst(self.Zin, 2)
 
         return
 
@@ -129,6 +129,29 @@ class depressionFillingZhou(object):
         graph = _fillZhou.spillpts(graphnb)
 
         return fillZ, pitlabs, watershed, graph
+
+    def performFlowDir(self, Z=None):
+        """
+        Compute flow direction using Barnes algorithm!
+        """
+
+        _fillZhou.fillinitialise_unst(Z, 3)
+        return _fillZhou.flowdir_unstruct(self.m)
+
+
+    def performLocalFlowDir(self, sfd=None):
+        """
+        Compute flow direction using Barnes algorithm!
+        """
+        
+        return _fillZhou.flowdir_combined(sfd)
+
+
+    def globalSFD(self, gflow=None, nmax=None):
+
+        rcvSFD = _fillZhou.global_flowdir(gflow, nmax)
+
+        return rcvSFD
 
     def getCellConnectivity(self):
         """

@@ -93,13 +93,13 @@ subroutine fillinitialise_unst_fast(coords, boundary, ngbIDs, ngbNb, &
   uextent = extent
   XYcoords = coords(:,1:2)
   call unstructured_mesh_parameters_initfast(coords(:,3), m, p, 2, boundary, &
-                                                                              ngbIDs, ngbNb, mIDs)
+                                                            ngbIDs, ngbNb, mIDs)
 
   return
 
 end subroutine fillinitialise_unst_fast
 
-subroutine fillinitialise_unst(Z, m)
+subroutine fillinitialise_unst(Z, tp, m)
 !*****************************************************************************
 ! This function initialises mesh parameters.
 
@@ -107,11 +107,16 @@ subroutine fillinitialise_unst(Z, m)
   implicit none
 
   integer :: m
+  integer,intent(in) :: tp
   real(kind=8),intent(in) :: Z(m)
 
   cartOn = .False.
-  wlabel = 0
-  call unstructured_mesh_parameters(Z, 2, m)
+  if(tp == 2)then
+    wlabel = 0
+  elseif(tp == 3)then
+    if(.not. allocated(flowdir)) allocate(flowdir(m))
+  endif
+  call unstructured_mesh_parameters(Z, tp, m)
 
   return
 
@@ -758,6 +763,374 @@ subroutine fillpit_unstruct(m, Filled, pitLabel, watershedLabel, graphN)
   return
 
 end subroutine fillpit_unstruct
+
+subroutine global_flowdir(gflow, nmax, sfd, nb)
+!*****************************************************************************
+! This function implements flow direction and path on the edges of a given grid.
+
+  use queues
+  implicit none
+
+  integer :: nb
+  integer :: nmax
+  real(kind=8),intent(in) :: gflow(nb,4)
+  integer,intent(out) :: sfd(nmax,2)
+
+  type (pqueue) :: pQ
+  type (node)  :: ptID
+
+  integer :: id, c, nc, p
+  logical :: Done(nmax)
+  integer :: d8(nmax)
+  integer :: ngbh(nb,nb),nbNgbh(nb),idg(nmax)
+  real(kind=8) :: z(nmax),border(nmax)
+  ! integer :: uid(nmax)
+
+  ! Create neighborhood
+  nbNgbh = 0
+  idg = -1
+  do id = 1, nb
+    c = int(gflow(id,1))+1
+    if(idg(c) < 0) idg(c) = id-1
+    nc = int(gflow(id,2))+1
+    z(c) = gflow(id,3)
+    border(c) = gflow(id,4)
+    if(nc .ne. c)then
+      nbNgbh(c) = nbNgbh(c)+1
+      nbNgbh(nc) = nbNgbh(nc)+1
+      ngbh(c,nbNgbh(c)) = nc
+      ngbh(nc,nbNgbh(nc)) = c
+    endif
+  enddo
+
+  do id = 1, nmax
+    write(*,*)'id',id-1,'connect',ngbh(id,1:nbNgbh(id))-1,'border',int(border(id))
+  enddo
+
+
+  ! Define borders
+  Done = .False.
+  d8 = -1
+  sfd = -1
+  do id = 1, nmax
+    if(border(id)>0.)then
+      call pQ%PQpush(z(id), id)
+      d8(id) = id
+      Done(id) = .True.
+      ! write(*,*)'id',id-1
+    endif
+  enddo
+
+  ! Perform flow direction as a depression-carving operation from Barnes 2014
+  do while(pQ%n >0)
+    ptID = pQ%PQpop()
+    c = ptID%id
+    ! write(*,*)'entry',c-1
+    do p = 1, nbNgbh(c)
+      nc = ngbh(c,p)
+      if(.not.Done(nc))then
+        ! write(*,*)'  subject',nc-1,'point to ',c-1
+        Done(nc) = .True.
+        call pQ%PQpush(z(nc), nc)
+        d8(nc) = c
+      endif
+    enddo
+  enddo
+  d8 = d8-1
+
+  sfd(:,1) = d8
+  sfd(:,2) = idg
+
+  return
+
+end subroutine global_flowdir
+
+subroutine flowdir_unstruct(m, sfd, path, opath, bpath)
+!*****************************************************************************
+! This function implements flow direction and path on the edges of a given grid.
+
+  use queues
+  implicit none
+
+  integer,intent(in) :: m
+  integer,intent(out) :: sfd(m)
+  integer,intent(out) :: path(m)
+  integer,intent(out) :: opath(m)
+  integer,intent(out) :: bpath(m)
+
+  ! type (queue) :: Q
+  type (node)  :: ptID
+
+  integer :: c, p, nc, c0, cn, i
+  real(kind=8) :: zmin
+  logical :: keepLooping
+
+  sfd = flowdir
+  ! Perform flow direction as a depression-carving operation from Barnes 2014
+  do while(priorityqueue%n >0)
+    ptID = priorityqueue%PQpop()
+    c = ptID%id
+    do p = 1, meshNgbhsNb(c)
+      nc = meshNgbhs(c,p)
+      if(.not.Flag(nc) .and. outIDs(nc)==0 .and. oBorders(nc)==0 )then
+        Flag(nc) = .True.
+        call priorityqueue%PQpush(Fill(nc), nc)
+        sfd(nc) = c
+      endif
+    enddo
+  enddo
+
+  ! Compute flow accumulation
+  ! D = 0
+  ! FA = 0
+  ! do c = 1, ntot
+  !   c0 = sfd(c)
+  !   if(c0>0)then
+  !     if(sfd(c0)>0) D(c0) = D(c0)+1
+  !   endif
+  ! enddo
+  ! do c = 1, ntot
+  !   if(D(c) == 0 .and. sfd(c)>0) call Q%push(Fill(c), c)
+  ! enddo
+  ! do while(Q%n > 0)
+  !   ptID = Q%pop()
+  !   c = ptID%id
+  !   FA(c) = FA(c)+1
+  !   c0 = sfd(c)
+  !   if(c0>0 .and. sfd(c0)>0)then
+  !     FA(c0) = FA(c0) + FA(c)
+  !     D(c0) = D(c0) - 1
+  !     if( D(c0) == 0)then
+  !       call Q%push(Fill(c0), c0)
+  !     endif
+  !   endif
+  ! enddo
+  ! write(*,*)'ddf'
+  ! Determine flow path on the perimeter based on local edges
+  path = -2
+  do i = 1, nborder
+    c = meshBorder(i)+1
+    keepLooping = .True.
+    c0 = c
+    if(uextent(c)==0 .or. eBorders(c)==1 )then
+      ! if(nborder==16)write(*,*)'init',c-1,sfd(c)-1,nborder
+      if(sfd(c) .ne. c)then
+        if(uextent(sfd(c))==0 .and. mBorders(sfd(c)) == 1)then
+          keepLooping = .False.
+          path(c) = sfd(c)
+          ! if(nborder==16)write(*,*)'   change',c-1,sfd(c)-1
+        endif
+      endif
+    endif
+    do while(keepLooping)
+      ! Terminate flow as we hit the global mesh boundary  (gbounds)
+      if(sfd(c) == c)then !if(uextent(c) == 1 .and. sfd(c) == c)then
+         path(c0) = c    ! FlowTerminate
+         keepLooping = .False.
+      endif
+      if(keepLooping)then
+        cn = sfd(c)
+        if(cn <= 0)then ! We go out the partition grid points
+          if(c == c0)then
+            path(c0) = -1 ! FlowExternal # Should not pass there I think...
+          else
+            path(c0) = c
+          endif
+          keepLooping = .False.
+        endif
+        if(outIDs(cn)>0)then
+          path(c0) = c
+          keepLooping = .False.
+        endif
+        c = cn
+      endif
+    enddo
+  enddo
+  ! write(*,*)'ddfd2'
+
+  opath = -2
+  bpath = -2
+  do i = 1, nborder
+    c = meshBorder(i)+1
+    zmin = Fill(sfd(c))
+    if(uextent(c)==0 .and. path(c)==c)then
+      do p = 1, meshNgbhsNb(c)
+        nc = meshNgbhs(c,p)
+        if(outIDs(nc) > 0 .and. Fill(nc)<=zmin)then
+          opath(c) = nc
+        endif
+      enddo
+      ! lp: do p = 1, meshNgbhsNb(c)
+      !   nc = meshNgbhs(c,p)
+      !   if(uextent(nc) == 1)then
+      !     bpath(c) = nc
+      !     exit lp
+      !   endif
+      ! enddo lp
+    endif
+    cn = sfd(c)
+  enddo
+
+  ! do i = 1, nborder
+  !   c = meshBorder(i)+1
+  !   cn = sfd(c)
+  !   if(outIDs(cn)>0)then
+  !     opath(c) = cn
+  !   endif
+  !   if(uextent(c) == 0)then
+  !     lp: do p = 1, meshNgbhsNb(c)
+  !       nc = meshNgbhs(c,p)
+  !       if(uextent(nc) == 1)then
+  !         bpath(c) = nc
+  !         exit lp
+  !       endif
+  !     enddo lp
+  !   endif
+  ! enddo
+
+  sfd = sfd-1
+
+
+  ! do i = 1, nids
+  !   c0 = inIDs(i)+1
+  !   keepLooping = .True.
+  !   c = c0
+  !   do while(keepLooping)
+  !     ! Terminate flow as we hit the global mesh boundary  (gbounds)
+  !     if(uextent(c) > 0)then
+  !        path(c0) = -1
+  !        keepLooping = .False.
+  !     endif
+  !     cn = sfd(c)+1
+  !     if(uextent(cn) > 0)then
+  !       path(c0) = -1
+  !       keepLooping = .False.
+  !     ! Local points that will be updated by the neighboring partition (idComm)
+  !     elseif(outIDs(nc) > 0 )then
+  !       path(c0) = c-1
+  !       keepLooping = .False.
+  !     elseif(cn-1 == sfd(cn)) then
+  !       path(c0) = c-1
+  !       keepLooping = .False.
+  !     endif
+  !     c = cn
+  !   enddo
+  ! enddo
+
+  return
+
+end subroutine flowdir_unstruct
+
+subroutine flowdir_combined(sfd, nsfd, FA, m)
+!*****************************************************************************
+! This function implements flow direction and path on the edges of a given grid.
+
+  use queues
+  implicit none
+
+  integer :: m
+  integer,intent(in) :: sfd(m)
+  integer,intent(out) :: nsfd(m)
+  integer,intent(out) :: FA(m)
+
+  type (queue) :: Q
+  type (node)  :: ptID
+
+  integer :: c, p, nc, c0, id
+  integer :: D(m)
+
+
+  Flag = .False.
+  nsfd = -2
+  do id = 1, ntot
+    if(sfd(id)>-1)then
+      call priorityqueue%PQpush(Fill(id), id)
+      nsfd(id) = sfd(id)+1
+      Flag(id) = .True.
+    elseif(uextent(id)>0)then
+      call priorityqueue%PQpush(Fill(id), id)
+      nsfd(id) = id
+      Flag(id) = .True.
+    elseif(outIDs(id)>0)then
+      call priorityqueue%PQpush(Fill(id), id)
+      nsfd(id) = -1
+      Flag(id) = .True.
+    elseif(oBorders(id)>0)then
+      nsfd(id) = -3
+      Flag(id) = .True.
+    endif
+  enddo
+
+  ! done = .False.
+  ! ptID = priorityqueue%PQpop()
+  ! id = ptID%id
+  ! if(flowdir(id) < 0)flowdir(id) = id
+  ! done(id) = .True.
+  !
+  ! do while(priorityqueue%n>0)
+  !   ptID = priorityqueue%PQpop()
+  !   id = ptID%id
+  !   if(outIDs(id)==0 .and. oBorders(id)==0)then
+  !     do k = 1, meshNgbhsNb(id)
+  !       i = meshNgbhs(id,k)
+  !       if( done(i) .and. outIDs(i)==0)then
+  !         flowdir(id) = i
+  !       endif
+  !     enddo
+  !     done(id) = .True.
+  !   endif
+  ! enddo
+  !
+  ! do id = 1, ntot
+  !   if(Flag(id))then
+  !     call priorityqueue%PQpush(Fill(id), id)
+  !   endif
+  ! enddo
+
+  ! Perform flow direction as a depression-carving operation from Barnes 2014
+  do while(priorityqueue%n >0)
+    ptID = priorityqueue%PQpop()
+    c = ptID%id
+    do p = 1, meshNgbhsNb(c)
+      nc = meshNgbhs(c,p)
+      if(.not.Flag(nc))then
+        Flag(nc) = .True.
+        call priorityqueue%PQpush(Fill(nc), nc)
+        nsfd(nc) = c
+      endif
+    enddo
+  enddo
+
+  ! Compute flow accumulation
+  D = 0
+  FA = 0
+  do c = 1, ntot
+    c0 = nsfd(c)
+    if(c0>0)then
+      if(nsfd(c0)>0) D(c0) = D(c0)+1
+    endif
+  enddo
+  do c = 1, ntot
+    if(D(c) == 0 .and. nsfd(c)>0) call Q%push(Fill(c), c)
+  enddo
+  do while(Q%n > 0)
+    ptID = Q%pop()
+    c = ptID%id
+    FA(c) = FA(c)+1
+    c0 = nsfd(c)
+    if(c0>0 .and. nsfd(c0)>0)then
+      FA(c0) = FA(c0) + FA(c)
+      D(c0) = D(c0) - 1
+      if( D(c0) == 0)then
+        call Q%push(Fill(c0), c0)
+      endif
+    endif
+  enddo
+  nsfd = nsfd-1
+
+  return
+
+end subroutine flowdir_combined
 
 subroutine cellconnect(nbcell, meshcells)
 !*****************************************************************************

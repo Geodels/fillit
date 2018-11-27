@@ -47,11 +47,34 @@ python module _fillZhou ! in
             integer, optional,check(shape(coords,0)==m),depend(coords) :: m=shape(coords,0)
             integer, optional,check(len(boundary)>=p),depend(boundary) :: p=len(boundary)
         end subroutine fillinitialise_unst_fast
-        subroutine fillinitialise_unst(z,m) ! in :_fillZhou:fillZhou.f90
+        subroutine fillinitialise_unst(z,tp,m) ! in :_fillZhou:fillZhou.f90
             use queues
+            integer intent(in) :: tp
             real(kind=8) dimension(m),intent(in) :: z
             integer, optional,check(len(z)>=m),depend(z) :: m=len(z)
         end subroutine fillinitialise_unst
+        subroutine flowdir_unstruct(m,sfd,path,opath,bpath) ! in :_fillZhou:fillZhou.f90
+            use queues
+            integer intent(in) :: m
+            integer dimension(m),intent(out) :: sfd
+            integer dimension(m),intent(out) :: path
+            integer dimension(m),intent(out) :: opath
+            integer dimension(m),intent(out) :: bpath
+        end subroutine flowdir_unstruct
+        subroutine global_flowdir(gflow, nmax, sfd, nb) ! in :_fillZhou:fillZhou.f90
+            use queues
+            integer intent(in) :: nmax
+            real(kind=8) dimension(nb,4),intent(in) :: gflow
+            integer dimension(nmax,2),intent(out),depend(nmax) :: sfd
+            integer, optional,check(shape(gflow,0)==nb),depend(gflow) :: nb=shape(gflow,0)
+        end subroutine global_flowdir
+        subroutine flowdir_combined(sfd,nsfd,FA,m) ! in :_fillZhou:fillZhou.f90
+            use queues
+            integer dimension(m),intent(in),depend(m) :: sfd
+            integer dimension(m),intent(out),depend(m) :: nsfd
+            integer dimension(m),intent(out),depend(m) :: FA
+            integer, optional,check(len(sfd)>=m),depend(sfd) :: m=len(sfd)
+        end subroutine flowdir_combined
         subroutine combineregtiles(elev,watershed,ext,newgraph,graphnb,m,n) ! in :_fillZhou:fillZhou.f90
             use queues
             real(kind=8) dimension(m,n),intent(in) :: elev

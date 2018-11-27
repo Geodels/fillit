@@ -109,11 +109,15 @@ module queues
 
   logical,dimension(:),allocatable :: Flag                              ! visited node ID flag
   integer,dimension(:,:),allocatable :: labels                          ! label to specify pit and slope nodes
+  integer,dimension(:),allocatable :: flowdir                         ! specify flow direction
   integer,dimension(:,:),allocatable :: meshIDs                   ! given node ID its i,j position
   integer,dimension(:),allocatable :: meshuIDs                  ! Unstructured grid inside mesh IDs
   integer,dimension(:),allocatable :: meshBorder               ! node ID of DEM border
+  integer,dimension(:),allocatable :: mBorders               ! node ID of DEM border
   integer,dimension(:,:),allocatable :: meshNgbhs              ! neighbors IDs for a given node
   integer,dimension(:),allocatable :: meshNgbhsNb          ! number of neighbors for a given node
+  integer,dimension(:),allocatable :: oBorders               ! node ID of DEM border
+  integer,dimension(:),allocatable :: eBorders               ! node ID of DEM border
 
   integer,dimension(:),allocatable :: inIDs                           ! Unstructured grid communication node IDs inside mesh
   integer,dimension(:),allocatable :: outIDs                        ! Unstructured grid communication node IDs outside mesh
@@ -645,13 +649,14 @@ contains
     integer,intent(in) :: edges_nodes(o,2)
     integer,intent(in) :: boundary(p)
 
-    integer :: i, id
+    integer :: i, id, k
 
     if(allocated(Fill)) deallocate(Fill)
     if(allocated(Flag)) deallocate(Flag)
     if(allocated(meshuIDs)) deallocate(meshuIDs)
     if(allocated(meshNgbhs)) deallocate(meshNgbhs)
     if(allocated(meshBorder)) deallocate(meshBorder)
+    if(allocated(mBorders)) deallocate(mBorders)
     if(allocated(meshNgbhsNb)) deallocate(meshNgbhsNb)
 
     ntot = m
@@ -663,9 +668,11 @@ contains
     allocate(meshNgbhs(ntot,12))
     allocate(meshNgbhsNb(ntot))
     allocate(meshBorder(nborder))
+    allocate(mBorders(ntot))
 
     meshuIDs = 1
     meshBorder = boundary
+    mBorders = 0
     Fill = Z
     call tesselate(cells_nodes, cells_edges, edges_nodes, n, m, o)
 
@@ -682,6 +689,7 @@ contains
     Flag = .False.
     do i = 1, nborder
       id = meshBorder(i) + 1
+      mBorders(id) = 1
       if(type == 1)then
         call totalqueue%PQpushT(Fill(id), cellnb, id)
       else
@@ -717,6 +725,7 @@ contains
     if(allocated(meshuIDs)) deallocate(meshuIDs)
     if(allocated(meshNgbhs)) deallocate(meshNgbhs)
     if(allocated(meshBorder)) deallocate(meshBorder)
+    if(allocated(mBorders)) deallocate(mBorders)
     if(allocated(meshNgbhsNb)) deallocate(meshNgbhsNb)
 
     ntot = m
@@ -728,12 +737,14 @@ contains
     allocate(meshNgbhs(ntot,12))
     allocate(meshNgbhsNb(ntot))
     allocate(meshBorder(nborder))
+    allocate(mBorders(ntot))
 
     Fill = Z
     meshuIDs = IDs
     meshNgbhs = ngbIDs+1
     meshNgbhsNb = ngbNb
     meshBorder = boundary
+    mBorders = 0
 
     if(type==2)then
       ! Zhou labelling IDs
@@ -748,6 +759,7 @@ contains
     Flag = .False.
     do i = 1, nborder
       id = meshBorder(i) + 1
+      mBorders(id) = 1
       if(type == 1)then
         call totalqueue%PQpushT(Fill(id), cellnb, id)
       else
@@ -771,8 +783,35 @@ contains
     integer :: m
     integer,intent(in) :: type
     real(kind=8),intent(in) :: Z(m)
+    type (node)  :: ptID
 
-    integer :: i, id
+
+    ! type (pqueue) :: ptyqueue
+    ! type (node)  :: ptID
+    integer :: i, id, k
+    real(kind=8) :: h
+    logical :: done(ntot)
+
+    if(type == 3)then
+      if(.not.allocated(oBorders))then
+        allocate(oBorders(ntot))
+        allocate(eBorders(ntot))
+        oBorders = 0
+        eBorders = 0
+        do i = 1, ntot
+          lp: do k = 1, meshNgbhsNb(i)
+            id = meshNgbhs(i,k)
+            if( outIDs(id)>0 .and. mBorders(i)==0)then
+              oBorders(i) = 1
+              exit lp
+            endif
+            if(uextent(i)==1 .and. outIDs(id)>0 )then
+              eBorders(i) = 1
+            endif
+          enddo lp
+        enddo
+      endif
+    endif
 
     Fill = Z
 
@@ -780,22 +819,89 @@ contains
       ! Zhou labelling IDs
       labels(:,1) = -1000
       labels(:,2) = 0
+    elseif(type==3)then
+      flowdir = -2
     endif
 
     ! Push edges to priority queue
-    cellnb = 0
     Flag = .False.
     do i = 1, nborder
       id = meshBorder(i) + 1
       if(type == 1)then
         call totalqueue%PQpushT(Fill(id), cellnb, id)
       else
-        call priorityqueue%PQpush(Fill(id), id)
-        if(type == 2) labels(id,1) = 0
+        if(type == 2)then
+          call priorityqueue%PQpush(Fill(id), id)
+          labels(id,1) = 0
+          Flag(id) = .True.
+        endif
       endif
-      Flag(id) = .True.
-      cellnb = cellnb + 1
     enddo
+
+    if(type == 3)then
+
+      Flag = .False.
+      do i = 1, nborder
+        id = meshBorder(i) + 1
+        call priorityqueue%PQpush(Fill(id), id)
+        flowdir(id) = id
+        Flag(id) = .True.
+      enddo
+
+      ! do id = 1, ntot
+        ! if(outIDs(id)>0)then
+        !   call priorityqueue%PQpush(Fill(id), id)
+        !   flowdir(id) = -1
+        !   Flag(id) = .True.
+        ! elseif(oBorders(id)>0)then
+        !   flowdir(id) = -3
+        !   Flag(id) = .True.
+        ! endif
+        ! if(uextent(id)>0)then
+        !   call priorityqueue%PQpush(Fill(id), id)
+        !   flowdir(id) = id
+        !   Flag(id) = .True.
+        ! elseif(outIDs(id)>0)then
+        !   call priorityqueue%PQpush(Fill(id), id)
+        !   flowdir(id) = -1
+        !   Flag(id) = .True.
+        ! elseif(oBorders(id)>0)then
+        !   flowdir(id) = -3
+        !   Flag(id) = .True.
+        ! endif
+        ! id = meshBorder(i) + 1
+        ! call priorityqueue%PQpush(Fill(id), id)
+        ! flowdir(id) = id
+      ! enddo
+
+      done = .False.
+      ptID = priorityqueue%PQpop()
+      id = ptID%id
+      flowdir(id) = id
+      done(id) = .True.
+
+      do while(priorityqueue%n>0)
+        ptID = priorityqueue%PQpop()
+        id = ptID%id
+        if(outIDs(id)==0 .and. oBorders(id)==0)then
+          ! write(*,*)'idvalues',id,flowdir(id)
+          do k = 1, meshNgbhsNb(id)
+            i = meshNgbhs(id,k)
+            if( done(i) .and. outIDs(i)==0)then
+              ! write(*,*)'deed2',i
+              flowdir(id) = i
+            endif
+          enddo
+          done(id) = .True.
+        endif
+      enddo
+
+      do id = 1, ntot
+        if(Flag(id))then
+          call priorityqueue%PQpush(Fill(id), id)
+        endif
+      enddo
+    endif
 
     return
 
