@@ -519,6 +519,7 @@ subroutine global_graph_fill(nb, cgraph, maxnghbs, nelev, spillrank, spillnodes,
 
   integer :: rank(nb,maxnghbs)
   integer :: ranknode(nb)
+  integer :: tmp(nb)
   integer :: ngbhArr(nb,maxnghbs)
   integer :: spillnode(nb,maxnghbs)
   real(kind=8) :: spill(nb,maxnghbs)
@@ -535,7 +536,7 @@ subroutine global_graph_fill(nb, cgraph, maxnghbs, nelev, spillrank, spillnodes,
   ranknode = -1
   spillid = -1
   rank = -1
-  order = -1
+  tmp = -1
   do k = 1, m
     n1 = int(cgraph(k,1))+1
     n2 = int(cgraph(k,2))+1
@@ -562,7 +563,7 @@ subroutine global_graph_fill(nb, cgraph, maxnghbs, nelev, spillrank, spillnodes,
     c = ptID%id
     if(.not.inFlag(c))then
       p = p+1
-      order(p) = c-1
+      tmp(p) = c
       nelev(c) = ptID%Z
       inFlag(c) = .True.
       do k = 1, ngbNb(c)
@@ -582,6 +583,13 @@ subroutine global_graph_fill(nb, cgraph, maxnghbs, nelev, spillrank, spillnodes,
           endif
         endif
       enddo
+    endif
+  enddo
+
+  order = -1
+  do k =1, nb
+    if(tmp(k)>-1)then
+      order(tmp(k)) = k-2
     endif
   enddo
 

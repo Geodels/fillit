@@ -104,17 +104,15 @@ class depressionFillingScape(object):
         """
 
         elev,rank,nodes,spillID,order = _fillScape.global_graph_fill(int(max(cgraph[:,1])+2), cgraph, maxnghbs)
-        order = order[::-1]
-        keep = order > -1
-        order = order[keep]
-        
-        graph = -np.ones((len(elev),4))
+
+        graph = -np.ones((len(elev),5))
         graph[:,0] = elev
         graph[:,1] = nodes
         graph[:,2] = rank
         graph[:,3] = spillID
+        graph[:,4] = order
 
-        return graph,order
+        return graph
 
     def getPitData_unst(self, zi, zf, area, depID, totpit):
         """
