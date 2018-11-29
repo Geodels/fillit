@@ -444,7 +444,7 @@ subroutine fillpit(m, Filled, watershedLabel, graphN)
             Flag(nc) = .True.
             call traceQueue%push(iSpill, nc)
           endif
-         call processTraceQueueOnePass() !wlabel)
+         call processTraceQueueOnePass() 
         endif
       endif
     enddo
