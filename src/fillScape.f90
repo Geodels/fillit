@@ -523,6 +523,7 @@ subroutine global_graph_fill(nb, cgraph, maxnghbs, nelev, spillrank, spillnodes,
   integer :: ngbhArr(nb,maxnghbs)
   integer :: spillnode(nb,maxnghbs)
   real(kind=8) :: spill(nb,maxnghbs)
+  real(kind=8) :: spillz(nb)
 
   ! Initialise graph as a mesh
   inFlag = .False.
@@ -533,6 +534,7 @@ subroutine global_graph_fill(nb, cgraph, maxnghbs, nelev, spillrank, spillnodes,
   nelev = 1.e8
   nelev(1) = -1.e8
   spillnode = -1
+  spillz = 1.e8
   ranknode = -1
   spillid = -1
   rank = -1
@@ -556,7 +558,6 @@ subroutine global_graph_fill(nb, cgraph, maxnghbs, nelev, spillrank, spillnodes,
   ! Perform pit filling using priority flood algorithm from Barnes 2014
   inFlag = .False.
   call priorityqueue%PQpush(nelev(1), 1)
-
   p = 0
   do while(priorityqueue%n > 0)
     ptID = priorityqueue%PQpop()
@@ -571,14 +572,25 @@ subroutine global_graph_fill(nb, cgraph, maxnghbs, nelev, spillrank, spillnodes,
         if(nc>0)then
           if(.not.inFlag(nc))then
             call priorityqueue%PQpush(max(spill(c,k),nelev(c)), nc)
-            if(ranknode(c) == rank(c,k) .and. c>1)then
-              spillnodes(nc) = spillnode(c,k)
-              spillid(nc) = c-1
-              spillrank(nc) = rank(c,k)
-            elseif(c==1)then
-              spillnodes(nc) = spillnode(c,k)
-              spillid(nc) = c-1
-              spillrank(nc) = rank(c,k)
+            if(spillid(nc)>=0 .and. max(spill(c,k),nelev(c))<spillz(nc))then
+              if(ranknode(c)==rank(c,k))then
+                spillnodes(nc) = spillnode(c,k)
+                spillid(nc) = c-1
+                spillrank(nc) = rank(c,k)
+                spillz(nc) = max(spill(c,k),nelev(c))
+              endif
+            elseif(spillid(nc)<0)then
+              if(c==1)then
+                spillnodes(nc) = spillnode(c,k)
+                spillid(nc) = c-1
+                spillrank(nc) = rank(c,k)
+                spillz(nc) = max(spill(c,k),nelev(c))
+              elseif(ranknode(c)==rank(c,k))then
+                spillnodes(nc) = spillnode(c,k)
+                spillid(nc) = c-1
+                spillrank(nc) = rank(c,k)
+                spillz(nc) = max(spill(c,k),nelev(c))
+              endif
             endif
           endif
         endif
