@@ -26,7 +26,7 @@ class depressionFillingScape(object):
     """
 
     def __init__(self, Z=None, coords=None, cells=None, ngbIDs=None, ngbNb=None,
-                 meshIDs=None, boundary=None, sealevel=0.,
+                 meshIDs=None, boundary=None, seaIDs=None,
                  extent=None, first=1):
         """
         The class initialisation requires different variables depending of the type of grid used.
@@ -36,7 +36,7 @@ class depressionFillingScape(object):
         + meshIDs: numpy array set to 1 for each node part of the pit filling mesh (optional)
         + ngbNb: numpy array containing neighbors number for each node  (optional)
         + boundary: numpy array containing local mesh boundary nodes  (optional)
-        + sealevel: sea-level position, every nodes below sea-level will not be filled  (optional)
+        + seaIDs: every nodes considered as marine will not be filled  (optional)
         + extent: numpy array set to 1 for each node on the boundary of the global domain  (optional)
         + first: if set to one will be used to compute the mesh parameters
         """
@@ -46,7 +46,7 @@ class depressionFillingScape(object):
         else:
             self.Zin = Z
         self.m = len(self.Zin)
-        self.seaIDs = np.where(self.Zin<sealevel)
+        self.seaIDs = seaIDs 
         if extent is None:
             extent = np.zeros((self.m),dtype=int)
 
