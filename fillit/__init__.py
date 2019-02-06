@@ -14,7 +14,4 @@ You should have received a copy of the GNU Lesser General Public License
 along with fillIT.  If not, see <http://www.gnu.org/licenses/>.
 """
 
-from .pitWei import depressionFillingWei
-from .pitZhou import depressionFillingZhou
 from .pitScape import depressionFillingScape
-from .pitBarnes import depressionFillingBarnes

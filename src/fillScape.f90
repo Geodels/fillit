@@ -21,41 +21,7 @@
 !*****************************************************************************
 !*****************************************************************************
 
-
-subroutine build_mesh(coords, boundary, cells_nodes, cells_edges, &
-                               edges_nodes, extent, m, n, o, p)
-!*****************************************************************************
-! This function initialises mesh parameters.
-
-  use queues
-  implicit none
-
-  integer :: m, n, p, o
-  integer,intent(in) :: extent(m)
-  real(kind=8),intent(in) :: coords(m,3)
-  integer,intent(in) :: cells_nodes(n,3)
-  integer,intent(in) :: cells_edges(n,3)
-  integer,intent(in) :: edges_nodes(o,2)
-  integer,intent(in) :: boundary(p)
-
-  cartOn = .False.
-  wlabel = 0
-
-  if(allocated(XYcoords)) deallocate(XYcoords)
-  allocate(XYcoords(m,2))
-  if(allocated(uextent)) deallocate(uextent)
-  allocate(uextent(m))
-  uextent = extent
-  XYcoords = coords(:,1:2)
-  call unstructured_mesh_parameters_init(coords(:,3), m, n, o, p, 2, boundary, &
-                                            cells_nodes, cells_edges, edges_nodes)
-
-  return
-
-end subroutine build_mesh
-
-subroutine escape_grid(coords, boundary, ngbIDs, ngbNb, &
-                                                        mIDs, extent, m, p)
+subroutine escape_global(ngbIDs, ngbNb, boundary, area, m, p)
 !*****************************************************************************
 ! This function initialises mesh parameters.
 
@@ -63,14 +29,51 @@ subroutine escape_grid(coords, boundary, ngbIDs, ngbNb, &
   implicit none
 
   integer :: m, p
+  integer,intent(in) :: ngbIDs(m,12)
+  integer,intent(in) :: ngbNb(m)
+  integer,intent(in) :: boundary(p)
+  real(kind=8),intent(in) :: area(m)
+
+  gtot = m
+  gborder = p
+
+  if(allocated(GmeshArea)) deallocate(GmeshArea)
+  if(allocated(GmeshNgbhs)) deallocate(GmeshNgbhs)
+  if(allocated(GmeshNgbhsNb)) deallocate(GmeshNgbhsNb)
+  allocate(GmeshNgbhs(gtot,12))
+  allocate(GmeshArea(gtot))
+  allocate(GmeshNgbhsNb(gtot))
+
+  GmeshArea = area
+  GmeshNgbhs = ngbIDs
+  GmeshNgbhsNb = ngbNb
+
+  if(gborder>1)then
+    if(allocated(GmeshBounds)) deallocate(GmeshBounds)
+    allocate(GmeshBounds(gborder))
+    GmeshBounds = boundary
+  endif
+
+  return
+
+end subroutine escape_global
+
+subroutine escape_grid(coords, boundary, seaIDs, ngbIDs, ngbNb, mIDs, extent, m, p, n)
+!*****************************************************************************
+! This function initialises mesh parameters.
+
+  use queues
+  implicit none
+
+  integer :: m, p, n
   integer,intent(in) :: extent(m)
   real(kind=8),intent(in) :: coords(m,3)
   integer,intent(in) :: ngbIDs(m,12)
   integer,intent(in) :: ngbNb(m)
   integer,intent(in) :: boundary(p)
+  integer,intent(in) :: seaIDs(n)
   integer,intent(in) :: mIDs(m)
 
-  cartOn = .False.
   wlabel = 0
 
   if(allocated(XYcoords)) deallocate(XYcoords)
@@ -79,31 +82,25 @@ subroutine escape_grid(coords, boundary, ngbIDs, ngbNb, &
   allocate(uextent(m))
   uextent = extent
   XYcoords = coords(:,1:2)
-  call unstructured_mesh_parameters_initfast(coords(:,3), m, p, 2, boundary, &
-                                                            ngbIDs, ngbNb, mIDs)
+  call mesh_parameters(coords(:,3), seaIDs, m, p, n, boundary, ngbIDs, ngbNb, mIDs)
 
   return
 
 end subroutine escape_grid
 
-subroutine escape_grid_fast(Z, tp, m)
+subroutine escape_grid_fast(Z, seaIDs, m, n)
 !*****************************************************************************
 ! This function initialises mesh parameters.
 
   use queues
   implicit none
 
-  integer :: m
-  integer,intent(in) :: tp
+  integer :: m, n
   real(kind=8),intent(in) :: Z(m)
+  integer,intent(in) :: seaIDs(n)
 
-  cartOn = .False.
-  if(tp == 2)then
-    wlabel = 0
-  elseif(tp == 3)then
-    if(.not. allocated(flowdir)) allocate(flowdir(m))
-  endif
-  call unstructured_mesh_parameters(Z, tp, m)
+  wlabel = 0
+  call mesh_parameters_fast(Z, seaIDs, m, n)
 
   return
 
@@ -463,6 +460,350 @@ subroutine fillpit(m, Filled, watershedLabel, graphN)
 
 end subroutine fillpit
 
+subroutine gfillpit_eps(elev, ids, eps, filleps, wshed, shednb, m, p)
+!*****************************************************************************
+! This function implements priority-flood depression filling with epsilon algorithm from
+! Barnes 2014. Barnes, Lehman, Mulla. "Priority-Flood: An Optimal Depression-Filling and
+! Watershed-Labeling Algorithm for Digital Elevation Models". Computers & Geosciences.
+! Vol 62, Jan 2014, pp 117–127.
+
+  use queues
+  implicit none
+
+  integer :: m, p
+  real(kind=8),intent(in) :: elev(m)
+  integer,intent(in) :: ids(p)
+  real(kind=8),intent(in) :: eps
+  real(kind=8),intent(out) :: filleps(m)
+  integer,intent(out) :: wshed(m)
+  integer,intent(out) :: shednb
+
+  integer :: i, id, k, c, nc, gshed, nb1, nb2
+  logical,dimension(m) :: Flags
+  type (node)  :: ptID
+
+  integer,dimension(:),allocatable :: combnb
+  integer,dimension(:,:),allocatable :: tmpshed
+  integer,dimension(:,:),allocatable :: combshed
+  integer,dimension(:),allocatable :: gcshed
+
+  filleps = elev
+  wshed = 0
+  gshed = 0
+
+  ! Push edges to priority queue
+  Flags = .False.
+
+  if(gborder>1)then
+    do i = 1, gborder
+      id = GmeshBounds(i) + 1
+      call priorityqueue%PQpush(filleps(id), id)
+      Flags(id) = .True.
+    enddo
+  endif
+
+  ! Push deep sea points to priority queue
+  if(p>1)then
+    do i = 1, p
+      id = ids(i) + 1
+      if(ids(i)>0)then
+        call priorityqueue%PQpush(filleps(id), id)
+        Flags(id) = .True.
+      endif
+    enddo
+  endif
+
+  ! Perform pit filling using priority flood algorithm variant from Barnes 2014
+  ! Here we use only one priority total queue as the plain queue doesn't ensure
+  ! a consistent pit+epsilon filling in our case... not sure why?
+  do while(priorityqueue%n >0)
+    ptID = priorityqueue%PQpop()
+    c = ptID%id
+    do k = 1, GmeshNgbhsNb(c)
+      nc = GmeshNgbhs(c,k)+1
+      if(.not.Flags(nc))then
+        Flags(nc) = .True.
+        if(filleps(nc)<filleps(c)+eps)then
+          if(wshed(c)==0)then
+            gshed = gshed + 1
+            wshed(nc) = gshed
+          else
+            wshed(nc) = wshed(c)
+          endif
+          filleps(nc) = filleps(c)+eps
+        endif
+        call priorityqueue%PQpush(filleps(nc), nc)
+      endif
+    enddo
+  enddo
+
+  ! Combine common depressions
+  if(gshed>1)then
+    if(allocated(combnb)) deallocate(combnb)
+    if(allocated(gcshed)) deallocate(gcshed)
+    if(allocated(tmpshed)) deallocate(tmpshed)
+    if(allocated(combshed)) deallocate(combshed)
+    allocate(combnb(gshed))
+    allocate(gcshed(gshed))
+    allocate(tmpshed(gshed,gshed))
+    allocate(combshed(gshed,gshed))
+    combnb = 0
+    gcshed = 0
+    tmpshed = 0
+    combshed = 0
+
+    do c = 1, m
+      do k = 1, GmeshNgbhsNb(c)
+        nc = GmeshNgbhs(c,k)+1
+        if(wshed(c)>0 .and. wshed(nc)>0 .and. wshed(c) .ne. wshed(nc))then
+          nb1 = wshed(c)
+          nb2 = wshed(nc)
+          if(tmpshed(nb1,nb2)==0)then
+            tmpshed(nb1,nb2) = nb2
+            tmpshed(nb2,nb1) = nb1
+            combnb(nb1) = combnb(nb1) + 1
+            combnb(nb2) = combnb(nb2) + 1
+            combshed(nb1,combnb(nb1)) = nb2
+            combshed(nb2,combnb(nb2)) = nb1
+          endif
+        endif
+      enddo
+    enddo
+
+    nb1 = gshed
+    do k = 1, gshed
+      if(combnb(k)>0)then
+        if(gcshed(k)==0) nb1 = nb1+1
+        if(gcshed(k)==0) gcshed(k) = nb1
+        do c = 1,combnb(k)
+          nc = combshed(k,c)
+          gcshed(nc) = nb1
+        enddo
+      elseif(gcshed(k)==0)then
+        nb1 = nb1+1
+        gcshed(k) = nb1
+      endif
+    enddo
+
+    if(allocated(gpitVol)) deallocate(gpitVol)
+    if(allocated(zmin)) deallocate(zmin)
+    if(allocated(idpit)) deallocate(idpit)
+    shednb = nb1-gshed
+    allocate(gpitVol(shednb))
+    allocate(zmin(shednb))
+    allocate(idpit(shednb))
+    gpitVol = 0.
+    zmin = 1.e6
+    idpit = -1
+    do k = 1, m
+      if(wshed(k)>0)then
+        wshed(k) = gcshed(wshed(k))-gshed
+        if(filleps(k)<zmin(wshed(k)))then
+          zmin(wshed(k)) = filleps(k)
+          idpit(wshed(k)) = k
+        endif
+        gpitVol(wshed(k)) = gpitVol(wshed(k)) + GmeshArea(k)*(filleps(k)-elev(k))
+      endif
+    enddo
+    deallocate(combnb,combshed,gcshed,tmpshed)
+  endif
+
+  return
+
+end subroutine gfillpit_eps
+
+subroutine gpitvols(shednb, pvol, ph, pid)
+!*****************************************************************************
+
+  use queues
+  implicit none
+
+  integer,intent(in) :: shednb
+  real(kind=8),intent(out) :: pvol(shednb)
+  real(kind=8),intent(out) :: ph(shednb)
+  integer,intent(out) :: pid(shednb)
+
+  pvol = gpitVol
+  ph = zmin
+  pid = idpit
+
+  return
+
+end subroutine gpitvols
+
+! subroutine gfillpit_eps(elev, ids, eps, filleps, m, p)
+! !*****************************************************************************
+! ! This function implements priority-flood depression filling with epsilon algorithm from
+! ! Barnes 2014. Barnes, Lehman, Mulla. "Priority-Flood: An Optimal Depression-Filling and
+! ! Watershed-Labeling Algorithm for Digital Elevation Models". Computers & Geosciences.
+! ! Vol 62, Jan 2014, pp 117–127.
+!
+!   use queues
+!   implicit none
+!
+!   integer :: m, p
+!   real(kind=8),intent(in) :: elev(m)
+!   integer,intent(in) :: ids(p)
+!   real(kind=8),intent(in) :: eps
+!   real(kind=8),intent(out) :: filleps(m)
+!
+!   integer :: i, id, k, c, nc
+!   logical,dimension(m) :: Flags
+!   type (node)  :: ptID
+!   real(kind=8) :: z1, z2 !,pitTop
+!
+!   filleps = elev
+!
+!   ! Push edges to priority queue
+!   Flags = .False.
+!
+!   if(gborder>1)then
+!     do i = 1, gborder
+!       id = GmeshBounds(i) + 1
+!       call priorityqueue%PQpush(filleps(id), id)
+!       Flags(id) = .True.
+!     enddo
+!   endif
+!
+!   ! Push deep sea points to priority queue
+!   if(p>1)then
+!     do i = 1, p
+!       id = ids(i) + 1
+!       if(ids(i)>0)then
+!         call priorityqueue%PQpush(filleps(id), id)
+!         Flags(id) = .True.
+!       endif
+!     enddo
+!   endif
+!
+!   ! Perform pit filling using priority flood algorithm variant from Barnes 2014
+!   ! Here we use only one priority total queue as the plain queue doesn't ensure
+!   ! a consistent pit+epsilon filling in our case... not sure why?
+!   ! pitTop = -1.e8
+!   do while(priorityqueue%n >0 .or. depressionQueue%n > 0)
+!
+!     ptID = priorityqueue%PQtop()
+!     z1 = ptID%Z
+!     ! call priorityqueue%PQpush(z1,ptID%id)
+!     z2 = -1.e8
+!     if(depressionQueue%n > 0)then
+!       ptID = depressionQueue%top()
+!       z2 = ptID%Z
+!       ! call depressionQueue%push(z2,ptID%id)
+!     endif
+!
+!     if(priorityqueue%n >0 .and. depressionQueue%n > 0 .and. z1 == z2)then
+!       ptID = priorityqueue%PQpop()
+!       c = ptID%id
+!       ! pitTop = -1.e8
+!     elseif(depressionQueue%n > 0)then
+!       ptID = depressionQueue%pop()
+!       c = ptID%id
+!       ! if(pitTop == -1.e8) pitTop = ptID%Z
+!     else
+!       ptID = priorityqueue%PQpop()
+!       c = ptID%id
+!       ! pitTop = -1.e8
+!     endif
+!
+!     do k = 1, GmeshNgbhsNb(c)
+!       nc = GmeshNgbhs(c,k)+1
+!       if(.not.Flags(nc))then
+!         Flags(nc) = .True.
+!         if(filleps(nc)<=filleps(c)+eps)then
+!           filleps(nc) = filleps(c)+eps
+!           call depressionQueue%push(filleps(nc), nc)
+!         else
+!           call priorityqueue%PQpush(filleps(nc), nc)
+!         endif
+!       endif
+!     enddo
+!   enddo
+!
+!   return
+!
+! end subroutine gfillpit_eps
+
+
+subroutine fillpit_eps(elev, ids, seaIDs, eps, filleps, m, q, p)
+!*****************************************************************************
+! This function implements priority-flood depression filling with epsilon algorithm from
+! Barnes 2014. Barnes, Lehman, Mulla. "Priority-Flood: An Optimal Depression-Filling and
+! Watershed-Labeling Algorithm for Digital Elevation Models". Computers & Geosciences.
+! Vol 62, Jan 2014, pp 117–127.
+
+  use queues
+  implicit none
+
+  integer :: m, q, p
+  real(kind=8),intent(in) :: elev(m)
+  integer,intent(in) :: ids(p)
+  integer,intent(in) :: seaIDs(q)
+  real(kind=8),intent(in) :: eps
+  real(kind=8),intent(out) :: filleps(m)
+
+  integer :: i, id, k, c, nc
+
+  type (node)  :: ptID
+
+  Fill = elev
+
+  ! Push edges to priority queue
+  Flag = .False.
+  do i = 1, p
+    id = ids(i) + 1
+    call priorityqueue%PQpush(Fill(id), id)
+    Flag(id) = .True.
+  enddo
+
+  ! Flag = .False.
+  ! do i = 1, ntot
+  !   if(uextent(i)>0)then
+  !     id = i !meshBorder(i) + 1
+  !     call priorityqueue%PQpush(Fill(id), id)
+  !     Flag(id) = .True.
+  !   endif
+  ! enddo
+
+
+  ! Flag = .False.
+  ! do i = 1, nborder
+  !   id = meshBorder(i) + 1
+  !   call priorityqueue%PQpush(Fill(id), id)
+  !   Flag(id) = .True.
+  ! enddo
+
+  ! Push deep sea points to priority queue
+  do i = 1, q
+    id = seaIDs(i) + 1
+    if(seaIDs(i)>0)then
+      call priorityqueue%PQpush(Fill(id), id)
+      Flag(id) = .True.
+    endif
+  enddo
+
+  ! Perform pit filling using priority flood algorithm variant from Barnes 2014
+  ! Here we use only one priority total queue as the plain queue doesn't ensure
+  ! a consistent pit+epsilon filling in our case... not sure why?
+  do while(priorityqueue%n >0)
+    ptID = priorityqueue%PQpop()
+    c = ptID%id
+    do k = 1, meshNgbhsNb(c)
+      nc = meshNgbhs(c,k)
+      if(.not.Flag(nc))then
+        Flag(nc) = .True.
+        Fill(nc) = max(Fill(nc),Fill(c)+eps)
+        call priorityqueue%PQpush(Fill(nc), nc)
+      endif
+    enddo
+  enddo
+
+  filleps = Fill
+
+  return
+
+end subroutine fillpit_eps
+
 subroutine get_spillover_nodes(graphnb, newwgraph)
 !*****************************************************************************
 ! This function returns pit/depression graph.
@@ -613,110 +954,110 @@ subroutine depression_info(zi, zf, area, depIDs, totpit, pitNb, pitVol, spillPts
 !*****************************************************************************
 ! Extract for unstructured grid pit information: unique label and volume
 
-use queues
-implicit none
+  use queues
+  implicit none
 
-integer :: m
-integer, intent(in) :: totpit
-real(kind=8), intent(in) :: area(m)
-real(kind=8), intent(in) :: zf(m)
-real(kind=8), intent(in) :: zi(m)
-integer, intent(in) :: depIDs(m)
+  integer :: m
+  integer, intent(in) :: totpit
+  real(kind=8), intent(in) :: area(m)
+  real(kind=8), intent(in) :: zf(m)
+  real(kind=8), intent(in) :: zi(m)
+  integer, intent(in) :: depIDs(m)
 
-integer, intent(out) :: pitNb(m)
-real(kind=8), intent(out) :: pitVol(totpit)
-real(kind=8), intent(out) :: spillPts(totpit,2)
+  integer, intent(out) :: pitNb(m)
+  real(kind=8), intent(out) :: pitVol(totpit)
+  real(kind=8), intent(out) :: spillPts(totpit,2)
 
-real(kind=8) :: z0
-integer :: depID(m)
-integer :: pitLabel(totpit)
-integer :: p, k, k1, k2, kk, k0
+  real(kind=8) :: z0
+  integer :: depID(m)
+  integer :: pitLabel(totpit)
+  integer :: p, k, k1, k2, kk, k0
 
-pitLabel = -1
-depID = depIDs
-spillPts = -1
+  pitLabel = -1
+  depID = depIDs
+  spillPts = -1
 
-do k = 1,m
-  if(meshuIDs(k)>0)then
-    do kk = 1, meshNgbhsNb(k)
-      p = meshNgbhs(k,kk)
+  do k = 1,m
+    if(meshuIDs(k)>0)then
+      do kk = 1, meshNgbhsNb(k)
+        p = meshNgbhs(k,kk)
 
-      if(depID(k)>0 .and. depID(p)>0)then
-        if(depID(k)>depID(p))then
-          if(pitLabel(depID(k))>0)then
-            pitLabel(depID(k)) = min(pitLabel(depID(k)),depID(p))
-          else
-            pitLabel(depID(k)) = depID(p)
-          endif
-        elseif(depID(k)<depID(p))then
-          if(pitLabel(depID(p))>0)then
-            pitLabel(depID(p)) = min(pitLabel(depID(p)),depID(k))
-          else
-            pitLabel(depID(p)) = depID(k)
+        if(depID(k)>0 .and. depID(p)>0)then
+          if(depID(k)>depID(p))then
+            if(pitLabel(depID(k))>0)then
+              pitLabel(depID(k)) = min(pitLabel(depID(k)),depID(p))
+            else
+              pitLabel(depID(k)) = depID(p)
+            endif
+          elseif(depID(k)<depID(p))then
+            if(pitLabel(depID(p))>0)then
+              pitLabel(depID(p)) = min(pitLabel(depID(p)),depID(k))
+            else
+              pitLabel(depID(p)) = depID(k)
+            endif
           endif
         endif
-      endif
 
-      if(depID(k)>0 .and. depID(p) .ne. depID(k))then
-        if(zf(p) <= zf(k))then
-          k0 = int(spillPts(depID(k),1))
-          z0 = spillPts(depID(k),2)
-          if(k0>0)then
-            if(z0>zf(p))then
+        if(depID(k)>0 .and. depID(p) .ne. depID(k))then
+          if(zf(p) <= zf(k))then
+            k0 = int(spillPts(depID(k),1))
+            z0 = spillPts(depID(k),2)
+            if(k0>0)then
+              if(z0>zf(p))then
+                spillPts(depID(k),1) = p
+                spillPts(depID(k),2) = zf(p)
+              endif
+            else
               spillPts(depID(k),1) = p
               spillPts(depID(k),2) = zf(p)
             endif
-          else
-            spillPts(depID(k),1) = p
-            spillPts(depID(k),2) = zf(p)
           endif
         endif
-      endif
 
-    enddo
-  endif
-enddo
-
-do k = 1, m
-  if(depID(k)>0 .and. meshuIDs(k)>0)then
-    kk = pitLabel(depID(k))
-    if(kk>0) depID(k) = kk
-  endif
-enddo
-
-pitLabel = -1
-
-! Local edges
-do k0 = 1, nids
-  k = inIDs(k0)+1
-  do p = 1, meshNgbhsNb(k)
-      kk = meshNgbhs(k,p)
-      if(outIDs(kk) > 0)then
-        k1 = depID(k)
-        k2 = depID(kk)
-        if( k2>0 .and. k1>0)then
-          if(k2<k1) pitLabel(k1) = k2
-          if(k2>k1) pitLabel(k2) = k1
-        endif
-      endif
-  enddo
-enddo
-
-pitNb =  -1
-pitVol = 0.
-
-do k = 1, m
-  pitNb(k) = depID(k)
-  if( depID(k)>0)then
-    if(pitLabel(depID(k))>0)then
-      pitNb(k) = pitLabel(depID(k))
-    else
-      pitNb(k) = depID(k)
+      enddo
     endif
-    if(meshuIDs(k)>0) pitVol(pitNb(k)) = pitVol(pitNb(k))+(zf(k)-zi(k))*area(k)
-  endif
-enddo
+  enddo
 
-return
+  do k = 1, m
+    if(depID(k)>0 .and. meshuIDs(k)>0)then
+      kk = pitLabel(depID(k))
+      if(kk>0) depID(k) = kk
+    endif
+  enddo
+
+  pitLabel = -1
+
+  ! Local edges
+  do k0 = 1, nids
+    k = inIDs(k0)+1
+    do p = 1, meshNgbhsNb(k)
+        kk = meshNgbhs(k,p)
+        if(outIDs(kk) > 0)then
+          k1 = depID(k)
+          k2 = depID(kk)
+          if( k2>0 .and. k1>0)then
+            if(k2<k1) pitLabel(k1) = k2
+            if(k2>k1) pitLabel(k2) = k1
+          endif
+        endif
+    enddo
+  enddo
+
+  pitNb =  -1
+  pitVol = 0.
+
+  do k = 1, m
+    pitNb(k) = depID(k)
+    if( depID(k)>0)then
+      if(pitLabel(depID(k))>0)then
+        pitNb(k) = pitLabel(depID(k))
+      else
+        pitNb(k) = depID(k)
+      endif
+      if(meshuIDs(k)>0) pitVol(pitNb(k)) = pitVol(pitNb(k))+(zf(k)-zi(k))*area(k)
+    endif
+  enddo
+
+  return
 
 end subroutine depression_info

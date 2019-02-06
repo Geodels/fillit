@@ -27,7 +27,7 @@ class depressionFillingScape(object):
 
     def __init__(self, Z=None, coords=None, cells=None, ngbIDs=None, ngbNb=None,
                  meshIDs=None, boundary=None, seaIDs=None,
-                 extent=None, first=1):
+                 extent=None, first=1, area=None):
         """
         The class initialisation requires different variables depending of the type of grid used.
         + coords: 3D numpy array containing X,Y,Z coordinates  (required)
@@ -41,43 +41,42 @@ class depressionFillingScape(object):
         + first: if set to one will be used to compute the mesh parameters
         """
 
+        if first == -1:
+            _fillScape.escape_global(ngbIDs, ngbNb, boundary, area)
+
+            return
+
         if first > 0:
             self.Zin = coords[:,2]
         else:
             self.Zin = Z
         self.m = len(self.Zin)
-        self.seaIDs = seaIDs 
         if extent is None:
             extent = np.zeros((self.m),dtype=int)
 
+        if len(seaIDs)>0:
+            self.seaIDs = seaIDs
+        else:
+            self.seaIDs = -np.ones(1)
+
         # Unstructured grid initialisation
         if first == 1:
-            Tmesh = vpy.mesh_tri.MeshTri(coords, cells)
-            Tmesh.mark_boundary()
-            ids = np.arange(0, len(Tmesh.node_coords), dtype=int)
-            boundary = ids[Tmesh._is_boundary_node]
-            coords = Tmesh.node_coords
-            edges_nodes = Tmesh.edges['nodes']
-            cells_nodes = Tmesh.cells['nodes']
-            cells_edges = Tmesh.cells['edges']
-            _fillScape.build_mesh(coords, boundary, cells_nodes, cells_edges,
-                                           edges_nodes, extent)
-        elif first == 2:
-            _fillScape.escape_grid(coords, boundary, ngbIDs, ngbNb, meshIDs, extent)
-
+            _fillScape.escape_grid(coords, boundary, self.seaIDs, ngbIDs, ngbNb,
+                                   meshIDs, extent)
         else:
-            _fillScape.escape_grid_fast(self.Zin, 2)
+            _fillScape.escape_grid_fast(self.Zin, self.seaIDs)
 
         return
 
-    def performPitFillingUnstruct(self, simple=True):
+    def performPitFilling(self, simple=True):
         """
         Perform pit filling!
         """
 
         fillZ, watershed, graphnb = _fillScape.fillpit(self.m)
 
-        fillZ[self.seaIDs] = self.Zin[self.seaIDs]
+        if len(self.seaIDs)>1:
+            fillZ[self.seaIDs] = self.Zin[self.seaIDs]
 
         if simple:
             return fillZ
@@ -86,7 +85,28 @@ class depressionFillingScape(object):
 
         return fillZ, watershed, graph
 
-    def combineUnstructGrids(self, updateFill, updateWatershed, inids=None, outids=None):
+    def performPitFillingEpsilon(self, Z=None, ids=None, eps=1.e-6, type=0):
+        """
+        Perform pit filling + epsilon!
+        """
+
+        if type==1:
+            if len(ids)==0:
+                ids = -np.ones(1)
+            fill, wshed, shednb = _fillScape.gfillpit_eps(Z, ids, eps)
+            pitvol,pith,pid = _fillScape.gpitvols(shednb)
+            val = pitvol == 0.
+            pith[val] = -1.e6
+            return fill, wshed-1, pitvol, pith, pid
+
+        fillZ = _fillScape.fillpit_eps(Z, ids, self.seaIDs, eps)
+
+        if len(self.seaIDs)>1:
+            fillZ[self.seaIDs] = self.Zin[self.seaIDs]
+
+        return fillZ
+
+    def combineGrids(self, updateFill, updateWatershed, inids=None, outids=None):
         """
         Combines unstructured grids when using parallel priority-flooding.
         """
@@ -113,10 +133,3 @@ class depressionFillingScape(object):
         graph[:,4] = order
 
         return graph
-
-    def getPitData_unst(self, zi, zf, area, depID, totpit):
-        """
-        Extract pit information.
-        """
-
-        return _fillScape.depression_info(zi, zf, area, depID, totpit)

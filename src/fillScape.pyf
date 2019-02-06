@@ -1,37 +1,36 @@
 python module _fillScape
     interface
 
-        subroutine build_mesh(coords,boundary,cells_nodes,cells_edges,edges_nodes,extent,m,n,o,p)
+        subroutine escape_global(ngbids,ngbnb,boundary,area,m,p)
             use queues
-            real(kind=8) dimension(m,3),intent(in) :: coords
+            integer dimension(m,12),intent(in),depend(m) :: ngbids
+            integer dimension(m),intent(in),depend(m) :: ngbnb
             integer dimension(p),intent(in) :: boundary
-            integer dimension(n,3),intent(in) :: cells_nodes
-            integer dimension(n,3),intent(in),depend(n) :: cells_edges
-            integer dimension(o,2),intent(in) :: edges_nodes
-            integer dimension(m),intent(in),depend(m) :: extent
-            integer, optional,check(shape(coords,0)==m),depend(coords) :: m=shape(coords,0)
-            integer, optional,check(shape(cells_nodes,0)==n),depend(cells_nodes) :: n=shape(cells_nodes,0)
-            integer, optional,check(shape(edges_nodes,0)==o),depend(edges_nodes) :: o=shape(edges_nodes,0)
+            real(kind=8) dimension(m),intent(in),depend(m) :: area
+            integer, optional,check(shape(ngbids,0)==m),depend(ngbids) :: m=shape(ngbids,0)
             integer, optional,check(len(boundary)>=p),depend(boundary) :: p=len(boundary)
-        end subroutine build_mesh
+        end subroutine escape_global
 
-        subroutine escape_grid(coords,boundary,ngbids,ngbnb,mids,extent,m,p)
+        subroutine escape_grid(coords,boundary,seaids,ngbids,ngbnb,mids,extent,m,p,n)
             use queues
             real(kind=8) dimension(m,3),intent(in) :: coords
             integer dimension(p),intent(in) :: boundary
+            integer dimension(n),intent(in) :: seaids
             integer dimension(m,12),intent(in),depend(m) :: ngbids
             integer dimension(m),intent(in),depend(m) :: ngbnb
             integer dimension(m),intent(in),depend(m) :: mids
             integer dimension(m),intent(in),depend(m) :: extent
             integer, optional,check(shape(coords,0)==m),depend(coords) :: m=shape(coords,0)
             integer, optional,check(len(boundary)>=p),depend(boundary) :: p=len(boundary)
+            integer, optional,check(len(seaids)>=n),depend(seaids) :: n=len(seaids)
         end subroutine escape_grid
 
-        subroutine escape_grid_fast(z,tp,m)
+        subroutine escape_grid_fast(z,seaids,m,n)
             use queues
-            integer intent(in) :: tp
             real(kind=8) dimension(m),intent(in) :: z
+            integer dimension(n),intent(in) :: seaids
             integer, optional,check(len(z)>=m),depend(z) :: m=len(z)
+            integer, optional,check(len(seaids)>=n),depend(seaids) :: n=len(seaids)
         end subroutine escape_grid_fast
 
         subroutine fillpit(m,filled,watershedlabel,graphn)
@@ -41,6 +40,38 @@ python module _fillScape
             integer dimension(m),intent(out),depend(m) :: watershedlabel
             integer intent(out) :: graphn
         end subroutine fillpit
+
+        subroutine gpitvols(shednb,pvol,ph,pid)
+            use queues
+            integer intent(in) :: shednb
+            real(kind=8) dimension(shednb),intent(out),depend(shednb) :: pvol
+            real(kind=8) dimension(shednb),intent(out),depend(shednb) :: ph
+            integer dimension(shednb),intent(out),depend(shednb) :: pid
+        end subroutine gpitvols
+
+        subroutine gfillpit_eps(elev,ids,eps,filleps,wshed,shednb,m,p)
+            use queues
+            real(kind=8) dimension(m),intent(in) :: elev
+            integer dimension(p),intent(in) :: ids
+            real(kind=8) intent(in) :: eps
+            real(kind=8) dimension(m),intent(out),depend(m) :: filleps
+            integer dimension(m),intent(out),depend(m) :: wshed
+            integer intent(out) :: shednb
+            integer, optional,check(len(elev)>=m),depend(elev) :: m=len(elev)
+            integer, optional,check(len(ids)>=p),depend(ids) :: p=len(ids)
+        end subroutine gfillpit_eps
+
+        subroutine fillpit_eps(elev,ids,seaids,eps,filleps,m,q,p)
+            use queues
+            real(kind=8) dimension(m),intent(in) :: elev
+            integer dimension(p),intent(in) :: ids
+            integer dimension(q),intent(in) :: seaids
+            real(kind=8) intent(in) :: eps
+            real(kind=8) dimension(m),intent(out),depend(m) :: filleps
+            integer, optional,check(len(elev)>=m),depend(elev) :: m=len(elev)
+            integer, optional,check(len(ids)>=p),depend(ids) :: p=len(ids)
+            integer, optional,check(len(seaids)>=q),depend(seaids) :: q=len(seaids)
+        end subroutine fillpit_eps
 
         subroutine get_spillover_nodes(graphnb,newwgraph)
             use queues
