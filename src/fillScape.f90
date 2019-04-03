@@ -478,9 +478,11 @@ subroutine gfillpit_eps(elev, ids, eps, filleps, wshed, shednb, m, p)
   integer,intent(out) :: wshed(m)
   integer,intent(out) :: shednb
 
-  integer :: i, id, k, c, nc, gshed, nb1, nb2
+  integer :: i, id, k, c, nc, gshed, nb1, nb2, pp, sz
   logical,dimension(m) :: Flags
   type (node)  :: ptID
+
+  logical :: flagy
 
   integer,dimension(:),allocatable :: combnb
   integer,dimension(:,:),allocatable :: tmpshed
@@ -493,7 +495,6 @@ subroutine gfillpit_eps(elev, ids, eps, filleps, wshed, shednb, m, p)
 
   ! Push edges to priority queue
   Flags = .False.
-
   if(gborder>1)then
     do i = 1, gborder
       id = GmeshBounds(i) + 1
@@ -541,15 +542,14 @@ subroutine gfillpit_eps(elev, ids, eps, filleps, wshed, shednb, m, p)
   if(gshed>1)then
     if(allocated(combnb)) deallocate(combnb)
     if(allocated(gcshed)) deallocate(gcshed)
-    if(allocated(tmpshed)) deallocate(tmpshed)
     if(allocated(combshed)) deallocate(combshed)
     allocate(combnb(gshed))
     allocate(gcshed(gshed))
-    allocate(tmpshed(gshed,gshed))
-    allocate(combshed(gshed,gshed))
+
+    sz = 100
+    allocate(combshed(gshed,sz))
     combnb = 0
     gcshed = 0
-    tmpshed = 0
     combshed = 0
 
     do c = 1, m
@@ -558,13 +558,35 @@ subroutine gfillpit_eps(elev, ids, eps, filleps, wshed, shednb, m, p)
         if(wshed(c)>0 .and. wshed(nc)>0 .and. wshed(c) .ne. wshed(nc))then
           nb1 = wshed(c)
           nb2 = wshed(nc)
-          if(tmpshed(nb1,nb2)==0)then
-            tmpshed(nb1,nb2) = nb2
-            tmpshed(nb2,nb1) = nb1
+          if(combnb(nb1)>0)then
+            flagy = .true.
+            lpp: do pp = 1,combnb(nb1)
+              if(combshed(nb1,pp)==nb2)then
+                flagy = .false.
+                exit lpp
+              endif
+            enddo lpp
+            if(flagy)then
+              combnb(nb1) = combnb(nb1) + 1
+              combnb(nb2) = combnb(nb2) + 1
+              combshed(nb1,combnb(nb1)) = nb2
+              combshed(nb2,combnb(nb2)) = nb1
+            endif
+          else
             combnb(nb1) = combnb(nb1) + 1
             combnb(nb2) = combnb(nb2) + 1
             combshed(nb1,combnb(nb1)) = nb2
             combshed(nb2,combnb(nb2)) = nb1
+          endif
+          if(combnb(nb1)>=sz .or. combnb(nb2)>=sz)then
+            if(allocated(tmpshed)) deallocate(tmpshed)
+            allocate(tmpshed(gshed,sz))
+            tmpshed =  combshed
+            deallocate(combshed)
+            sz = sz + 100
+            allocate(combshed(gshed,sz))
+            combshed(1:gshed,1:sz-100) = tmpshed
+            deallocate(tmpshed)
           endif
         endif
       enddo
@@ -605,7 +627,7 @@ subroutine gfillpit_eps(elev, ids, eps, filleps, wshed, shednb, m, p)
         gpitVol(wshed(k)) = gpitVol(wshed(k)) + GmeshArea(k)*(filleps(k)-elev(k))
       endif
     enddo
-    deallocate(combnb,combshed,gcshed,tmpshed)
+    deallocate(combnb,combshed,gcshed)
   endif
 
   return
