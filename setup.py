@@ -13,7 +13,7 @@ sys_includes += glob.glob('src/*.mod')
 # interface for fortran code
 ext = Extension(name    = 'fillit._fillScape',
                  sources = ['src/fillScape.pyf', 'src/fillScape.f90'],
-                 extra_link_args = ['-shared src/queues.o'],
+                 extra_link_args = ['src/queues.o'],
                  extra_f90_compile_args = ['-fPIC', '-O3'])
                  #extra_f90_compile_args = ['-fPIC', '-O0', '-g', '-fbacktrace','-fcheck=all'])
 
