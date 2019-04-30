@@ -94,9 +94,15 @@ class depressionFillingScape(object):
             if len(ids)==0:
                 ids = -np.ones(1)
             fill, wshed, shednb = _fillScape.gfillpit_eps(Z, ids, eps)
-            pitvol,pith,pid = _fillScape.gpitvols(shednb)
-            val = pitvol == 0.
-            pith[val] = -1.e6
+            if shednb > 0:
+                pitvol,pith,pid = _fillScape.gpitvols(shednb)
+                val = pitvol == 0.
+                pith[val] = -1.e6
+            else:
+                pitvol = np.zeros(1)
+                pith = np.zeros(1)
+                pid = np.zeros(1,dtype=int)
+
             return fill, wshed-1, pitvol, pith, pid
 
         fillZ = _fillScape.fillpit_eps(Z, ids, self.seaIDs, eps)
