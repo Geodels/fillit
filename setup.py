@@ -24,7 +24,7 @@ if __name__ == "__main__":
           url               = "https://github.com/Geodels/fillit",
           version           = "0.0.1",
           description       = "A Python interface to compute pit filling using priority-flood on structured and unstructured meshes.",
-          long_description = open('README.md').read(),
+          long_description = open('README.md',encoding="utf-8").read(),
           long_description_content_type = "text/markdown",
           ext_modules       = [ext],
           packages          = ['fillit'],
