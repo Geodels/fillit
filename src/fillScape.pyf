@@ -1,9 +1,11 @@
-python module _fillScape
-    interface
+!    -*- f90 -*-
+! Note: the context of this file is case sensitive.
 
-        subroutine escape_global(ngbids,ngbnb,boundary,area,m,p)
+python module _fillScape ! in
+    interface  ! in :queues
+        subroutine escape_global(ngbids,ngbnb,boundary,area,m,p) ! in :queues:fillScape.f90
             use queues
-            integer dimension(m,12),intent(in),depend(m) :: ngbids
+            integer dimension(m,12),intent(in) :: ngbids
             integer dimension(m),intent(in),depend(m) :: ngbnb
             integer dimension(p),intent(in) :: boundary
             real(kind=8) dimension(m),intent(in),depend(m) :: area
@@ -11,7 +13,7 @@ python module _fillScape
             integer, optional,check(len(boundary)>=p),depend(boundary) :: p=len(boundary)
         end subroutine escape_global
 
-        subroutine escape_grid(coords,boundary,seaids,ngbids,ngbnb,mids,extent,m,p,n)
+        subroutine escape_grid(coords,boundary,seaids,ngbids,ngbnb,mids,extent,m,p,n) ! in :queues:fillScape.f90
             use queues
             real(kind=8) dimension(m,3),intent(in) :: coords
             integer dimension(p),intent(in) :: boundary
@@ -25,7 +27,7 @@ python module _fillScape
             integer, optional,check(len(seaids)>=n),depend(seaids) :: n=len(seaids)
         end subroutine escape_grid
 
-        subroutine escape_grid_fast(z,seaids,m,n)
+        subroutine escape_grid_fast(z,seaids,m,n) ! in :queues:fillScape.f90
             use queues
             real(kind=8) dimension(m),intent(in) :: z
             integer dimension(n),intent(in) :: seaids
@@ -33,53 +35,7 @@ python module _fillScape
             integer, optional,check(len(seaids)>=n),depend(seaids) :: n=len(seaids)
         end subroutine escape_grid_fast
 
-        subroutine fillpit(m,filled,watershedlabel,graphn)
-            use queues
-            integer intent(in) :: m
-            real(kind=8) dimension(m),intent(out),depend(m) :: filled
-            integer dimension(m),intent(out),depend(m) :: watershedlabel
-            integer intent(out) :: graphn
-        end subroutine fillpit
-
-        subroutine gpitvols(shednb,pvol,ph,pid)
-            use queues
-            integer intent(in) :: shednb
-            real(kind=8) dimension(shednb),intent(out),depend(shednb) :: pvol
-            real(kind=8) dimension(shednb),intent(out),depend(shednb) :: ph
-            integer dimension(shednb),intent(out),depend(shednb) :: pid
-        end subroutine gpitvols
-
-        subroutine gfillpit_eps(elev,ids,eps,filleps,wshed,shednb,m,p)
-            use queues
-            real(kind=8) dimension(m),intent(in) :: elev
-            integer dimension(p),intent(in) :: ids
-            real(kind=8) intent(in) :: eps
-            real(kind=8) dimension(m),intent(out),depend(m) :: filleps
-            integer dimension(m),intent(out),depend(m) :: wshed
-            integer intent(out) :: shednb
-            integer, optional,check(len(elev)>=m),depend(elev) :: m=len(elev)
-            integer, optional,check(len(ids)>=p),depend(ids) :: p=len(ids)
-        end subroutine gfillpit_eps
-
-        subroutine fillpit_eps(elev,ids,seaids,eps,filleps,m,q,p)
-            use queues
-            real(kind=8) dimension(m),intent(in) :: elev
-            integer dimension(p),intent(in) :: ids
-            integer dimension(q),intent(in) :: seaids
-            real(kind=8) intent(in) :: eps
-            real(kind=8) dimension(m),intent(out),depend(m) :: filleps
-            integer, optional,check(len(elev)>=m),depend(elev) :: m=len(elev)
-            integer, optional,check(len(ids)>=p),depend(ids) :: p=len(ids)
-            integer, optional,check(len(seaids)>=q),depend(seaids) :: q=len(seaids)
-        end subroutine fillpit_eps
-
-        subroutine get_spillover_nodes(graphnb,newwgraph)
-            use queues
-            integer intent(in) :: graphnb
-            real(kind=8) dimension(graphnb,4),intent(out),depend(graphnb) :: newwgraph
-        end subroutine get_spillover_nodes
-
-        subroutine combine_edges(elev,watershed,ins,outs,newgraph,graphnb,m,n)
+        subroutine combine_edges(elev,watershed,ins,outs,newgraph,graphnb,m,n) ! in :queues:fillScape.f90
             use queues
             real(kind=8) dimension(m),intent(in) :: elev
             integer dimension(m),intent(in),depend(m) :: watershed
@@ -91,30 +47,90 @@ python module _fillScape
             integer, optional,check(len(ins)>=n),depend(ins) :: n=len(ins)
         end subroutine combine_edges
 
-        subroutine combine_edges_fast(n,elev,watershed,newgraph,graphnb,m)
+        subroutine combine_edges_fast(n,elev,watershed,newgraph,graphnb,m) ! in :queues:fillScape.f90
             use queues
             integer intent(in) :: n
             real(kind=8) dimension(m),intent(in) :: elev
             integer dimension(m),intent(in),depend(m) :: watershed
-            real(kind=8) dimension((m+n)*2,4),intent(out),depend(m,n) :: newgraph
+            real(kind=8) dimension((m+n)*2,4),intent(out),depend(n,m) :: newgraph
             integer intent(out) :: graphnb
             integer, optional,check(len(elev)>=m),depend(elev) :: m=len(elev)
         end subroutine combine_edges_fast
 
-        subroutine global_graph_fill(nb,cgraph,maxnghbs,nelev,spillrank,spillnodes,spillid,order,m)
+        subroutine watershedsmeet(c,nc) ! in :queues:fillScape.f90
+            use queues
+            integer :: c
+            integer :: nc
+        end subroutine watershedsmeet
+
+        subroutine processpitonepass ! in :queues:fillScape.f90
+            use queues
+        end subroutine processpitonepass
+
+        subroutine processtracequeueonepass ! in :queues:fillScape.f90
+            use queues
+        end subroutine processtracequeueonepass
+
+        subroutine fillpit(m,filled,watershedlabel,graphn) ! in :queues:fillScape.f90
+            use queues
+            integer intent(in) :: m
+            real(kind=8) dimension(m),intent(out),depend(m) :: filled
+            integer dimension(m),intent(out),depend(m) :: watershedlabel
+            integer intent(out) :: graphn
+        end subroutine fillpit
+
+        subroutine gfillpit_eps(elev,ids,eps,filleps,wshed,shednb,m,p) ! in :queues:fillScape.f90
+            use queues
+            real(kind=8) dimension(m),intent(in) :: elev
+            integer dimension(p),intent(in) :: ids
+            real(kind=8) intent(in) :: eps
+            real(kind=8) dimension(m),intent(out),depend(m) :: filleps
+            integer dimension(m),intent(out),depend(m) :: wshed
+            integer intent(out) :: shednb
+            integer, optional,check(len(elev)>=m),depend(elev) :: m=len(elev)
+            integer, optional,check(len(ids)>=p),depend(ids) :: p=len(ids)
+        end subroutine gfillpit_eps
+
+        subroutine gpitvols(shednb,pvol,ph,pid) ! in :queues:fillScape.f90
+            use queues
+            integer intent(in) :: shednb
+            real(kind=8) dimension(shednb),intent(out),depend(shednb) :: pvol
+            real(kind=8) dimension(shednb),intent(out),depend(shednb) :: ph
+            integer dimension(shednb),intent(out),depend(shednb) :: pid
+        end subroutine gpitvols
+
+        subroutine fillpit_eps(elev,ids,seaids,eps,filleps,m,q,p) ! in :queues:fillScape.f90
+            use queues
+            real(kind=8) dimension(m),intent(in) :: elev
+            integer dimension(p),intent(in) :: ids
+            integer dimension(q),intent(in) :: seaids
+            real(kind=8) intent(in) :: eps
+            real(kind=8) dimension(m),intent(out),depend(m) :: filleps
+            integer, optional,check(len(elev)>=m),depend(elev) :: m=len(elev)
+            integer, optional,check(len(seaids)>=q),depend(seaids) :: q=len(seaids)
+            integer, optional,check(len(ids)>=p),depend(ids) :: p=len(ids)
+        end subroutine fillpit_eps
+
+        subroutine get_spillover_nodes(graphnb,newwgraph) ! in :queues:fillScape.f90
+            use queues
+            integer intent(in) :: graphnb
+            real(kind=8) dimension(graphnb,4),intent(out),depend(graphnb) :: newwgraph
+        end subroutine get_spillover_nodes
+
+        subroutine global_graph_fill(nb,cgraph,maxnghbs,nelev,spillrank,spillnodes,spillid,order,m) ! in :queues:fillScape.f90
             use queues
             integer intent(in) :: nb
             real(kind=8) dimension(m,5),intent(in) :: cgraph
             integer intent(in) :: maxnghbs
+            real(kind=8) dimension(nb),intent(out),depend(nb) :: nelev
             integer dimension(nb),intent(out),depend(nb) :: spillrank
             integer dimension(nb),intent(out),depend(nb) :: spillnodes
             integer dimension(nb),intent(out),depend(nb) :: spillid
             integer dimension(nb),intent(out),depend(nb) :: order
-            real(kind=8) dimension(nb),intent(out),depend(nb) :: nelev
             integer, optional,check(shape(cgraph,0)==m),depend(cgraph) :: m=shape(cgraph,0)
         end subroutine global_graph_fill
 
-        subroutine depression_info(zi,zf,area,depids,totpit,pitnb,pitvol,spillpts,m)
+        subroutine depression_info(zi,zf,area,depids,totpit,pitnb,pitvol,spillpts,m) ! in :queues:fillScape.f90
             use queues
             real(kind=8) dimension(m),intent(in) :: zi
             real(kind=8) dimension(m),intent(in),depend(m) :: zf
@@ -129,3 +145,6 @@ python module _fillScape
 
     end interface
 end python module _fillScape
+
+! This file was auto-generated with f2py (version:2).
+! See http://cens.ioc.ee/projects/f2py2e/
